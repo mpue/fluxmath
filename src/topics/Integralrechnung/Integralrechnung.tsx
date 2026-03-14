@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { MathCanvas } from '../../shared/MathCanvas';
-import { setupCanvas, drawGrid, drawAxes, drawCurve, drawCrosshair, C, fmt } from '../../shared/canvasUtils';
+import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { drawCurve, C, fmt } from '../../shared/canvasUtils';
 
 const FUNCTIONS = [
   { id: 'poly', label: 'Polynom', desc: 'f(x) = x² − 2', F: 'F(x) = x³/3 − 2x + C' },
@@ -37,11 +37,8 @@ export const Integralrechnung: React.FC = () => {
 
   const integralValue = numericalIntegral(f, aVal, bVal);
 
-  const draw = useCallback((canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, mx: number, my: number) => {
-    const layout = setupCanvas(canvas, ctx);
-    drawGrid(ctx, layout);
-    drawAxes(ctx, layout);
-    const { toX, toY, w, h, unitPx, cx } = layout;
+  const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
+    const { toX, toY, w, h, unitPx, cx } = vp;
 
     // Filled area
     const pxA = toX(aVal);
@@ -88,12 +85,11 @@ export const Integralrechnung: React.FC = () => {
     ctx.fillText('a = ' + fmt(aVal), pxA, 18);
     ctx.fillText('b = ' + fmt(bVal), pxB, 18);
 
-    // Function curve
-    drawCurve(ctx, layout, f, C.line, C.lineGlow);
+    drawCurve(ctx, vp, f, C.line, C.lineGlow);
 
     // Antiderivative (cumulative integral from left edge)
     const accumFn = (x: number) => numericalIntegral(f, 0, x, 100);
-    drawCurve(ctx, layout, accumFn, C.yint, C.yintGlow, 1.5, 0.1);
+    drawCurve(ctx, vp, accumFn, C.yint, C.yintGlow, 1.5, 0.1);
 
     // Integral value label in the area
     const midX = (aVal + bVal) / 2;
@@ -107,8 +103,17 @@ export const Integralrechnung: React.FC = () => {
       ctx.fillText(fmt(integralValue, 2), midPx, labelPy);
     }
 
-    const fMouse = mx >= 0 ? f((mx - cx) / unitPx) : undefined;
-    return drawCrosshair(ctx, layout, mx, my, fMouse);
+    if (mx >= 0) {
+      const mathX = vp.toMathX(mx);
+      const fVal = f(mathX);
+      const snapY = toY(fVal);
+      if (snapY > 0 && snapY < h) {
+        ctx.beginPath(); ctx.arc(mx, snapY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,212,255,0.6)'; ctx.fill();
+      }
+      return 'x: ' + mathX.toFixed(1) + '   y: ' + vp.toMathY(my).toFixed(1) + '   f(x) = ' + fmt(fVal);
+    }
+    return '';
   }, [f, aVal, bVal, integralValue]);
 
   const funcInfo = FUNCTIONS.find(fn => fn.id === funcId)!;
@@ -119,7 +124,7 @@ export const Integralrechnung: React.FC = () => {
       <h1>Integral<em>rechnung</em></h1>
       <p className="subtitle">Bestimmtes Integral, Flächenberechnung &amp; Stammfunktion</p>
 
-      <MathCanvas draw={draw} />
+      <CoordinateSystem draw={draw} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">

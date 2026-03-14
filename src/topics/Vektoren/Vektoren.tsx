@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { MathCanvas } from '../../shared/MathCanvas';
-import { setupCanvas, drawGrid, drawAxes, C, fmt } from '../../shared/canvasUtils';
+import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { C, fmt } from '../../shared/canvasUtils';
 
 export const Vektoren: React.FC = () => {
   const [ax, setAx] = useState(30);
@@ -46,11 +46,8 @@ export const Vektoren: React.FC = () => {
     ctx.fill();
   };
 
-  const draw = useCallback((canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, mx: number, my: number) => {
-    const layout = setupCanvas(canvas, ctx);
-    drawGrid(ctx, layout);
-    drawAxes(ctx, layout);
-    const { toX, toY } = layout;
+  const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
+    const { toX, toY } = vp;
 
     const ox = toX(0), oy = toY(0);
 
@@ -151,8 +148,7 @@ export const Vektoren: React.FC = () => {
     ctx.fillText(`b = (${fmt(vb.x)} | ${fmt(vb.y)})`, toX(vb.x / 2) + 6, toY(vb.y / 2) + 4);
 
     if (mx >= 0 && my >= 0) {
-      const { cx, cy, unitPx } = layout;
-      return 'x: ' + ((mx - cx) / unitPx).toFixed(1) + '   y: ' + (-(my - cy) / unitPx).toFixed(1);
+      return 'x: ' + vp.toMathX(mx).toFixed(1) + '   y: ' + vp.toMathY(my).toFixed(1);
     }
     return '';
   }, [va, vb, op, s, dot, lenA, lenB, angle]);
@@ -163,7 +159,7 @@ export const Vektoren: React.FC = () => {
       <h1>Vektor<em>rechnung</em></h1>
       <p className="subtitle">Vektoren, Operationen, Skalarprodukt &amp; Winkel</p>
 
-      <MathCanvas draw={draw} />
+      <CoordinateSystem draw={draw} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">

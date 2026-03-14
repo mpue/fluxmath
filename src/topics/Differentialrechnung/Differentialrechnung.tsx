@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { MathCanvas } from '../../shared/MathCanvas';
-import { setupCanvas, drawGrid, drawAxes, drawCurve, drawCrosshair, drawPoint, C, fmt } from '../../shared/canvasUtils';
+import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
 
 const FUNCTIONS = [
   { id: 'poly', label: 'Polynom', desc: 'f(x) = x³ − 3x' },
@@ -43,23 +43,19 @@ export const Differentialrechnung: React.FC = () => {
   const x0 = sliderX0 / 10;
   const { f, df, ddf } = funcs[funcId];
 
-  const draw = useCallback((canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, mx: number, my: number) => {
-    const layout = setupCanvas(canvas, ctx);
-    drawGrid(ctx, layout);
-    drawAxes(ctx, layout);
-    const { toX, toY, w, h } = layout;
+  const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
+    const { toX, toY, w, h } = vp;
 
-    // f(x)
-    drawCurve(ctx, layout, f, C.line, C.lineGlow);
+    drawCurve(ctx, vp, f, C.line, C.lineGlow);
 
     // f'(x)
     if (showDf) {
-      drawCurve(ctx, layout, df, C.magenta, C.magentaGlow, 2);
+      drawCurve(ctx, vp, df, C.magenta, C.magentaGlow, 2);
     }
 
     // f''(x)
     if (showDdf) {
-      drawCurve(ctx, layout, ddf, C.purple, C.purpleGlow, 1.5);
+      drawCurve(ctx, vp, ddf, C.purple, C.purpleGlow, 1.5);
     }
 
     // Tangent at x0
@@ -72,8 +68,8 @@ export const Differentialrechnung: React.FC = () => {
     ctx.strokeStyle = C.orange;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    const tLeft = (0 - layout.cx) / layout.unitPx;
-    const tRight = (w - layout.cx) / layout.unitPx;
+    const tLeft = vp.xMin - 1;
+    const tRight = vp.xMax + 1;
     ctx.moveTo(0, toY(tangentFn(tLeft)));
     ctx.lineTo(w, toY(tangentFn(tRight)));
     ctx.stroke();
@@ -102,8 +98,17 @@ export const Differentialrechnung: React.FC = () => {
       ctx.fillText(type, pPx, pPy - 18);
     }
 
-    const fMouse = mx >= 0 ? f((mx - layout.cx) / layout.unitPx) : undefined;
-    return drawCrosshair(ctx, layout, mx, my, fMouse);
+    if (mx >= 0) {
+      const mathX = vp.toMathX(mx);
+      const fVal = f(mathX);
+      const snapY = toY(fVal);
+      if (snapY > 0 && snapY < h) {
+        ctx.beginPath(); ctx.arc(mx, snapY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,212,255,0.6)'; ctx.fill();
+      }
+      return 'x: ' + mathX.toFixed(1) + '   y: ' + vp.toMathY(my).toFixed(1) + '   f(x) = ' + fmt(fVal);
+    }
+    return '';
   }, [f, df, ddf, x0, showDf, showDdf]);
 
   const y0 = f(x0);
@@ -116,7 +121,7 @@ export const Differentialrechnung: React.FC = () => {
       <h1>Differential<em>rechnung</em></h1>
       <p className="subtitle">Ableitungen, Tangenten, Extremstellen &amp; Wendepunkte</p>
 
-      <MathCanvas draw={draw} />
+      <CoordinateSystem draw={draw} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">

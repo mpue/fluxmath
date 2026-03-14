@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { MathCanvas } from '../../shared/MathCanvas';
-import { setupCanvas, drawGrid, drawAxes, drawCurve, drawCrosshair, drawPoint, C, fmt } from '../../shared/canvasUtils';
+import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
 
 export const Exponentialfunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -14,11 +14,8 @@ export const Exponentialfunktionen: React.FC = () => {
 
   const f = useCallback((x: number) => a * Math.exp(k * x) + d, [a, k, d]);
 
-  const draw = useCallback((canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, mx: number, my: number) => {
-    const layout = setupCanvas(canvas, ctx);
-    drawGrid(ctx, layout);
-    drawAxes(ctx, layout);
-    const { toX, toY, w, h } = layout;
+  const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
+    const { toX, toY, w, h } = vp;
 
     // Asymptote y = d
     const aPx = toY(d);
@@ -34,13 +31,12 @@ export const Exponentialfunktionen: React.FC = () => {
       ctx.fillText('Asymptote y = ' + fmt(d), 8, aPx - 4);
     }
 
-    // Main curve
-    drawCurve(ctx, layout, f, C.line, C.lineGlow);
+    drawCurve(ctx, vp, f, C.line, C.lineGlow);
 
     // ln curve
     if (showLn) {
       const lnFn = (x: number) => x > 0 ? Math.log(x) : NaN;
-      drawCurve(ctx, layout, (x: number) => {
+      drawCurve(ctx, vp, (x: number) => {
         const val = lnFn(x);
         return isNaN(val) ? -999 : val;
       }, C.magenta, C.magentaGlow, 2);
@@ -70,8 +66,17 @@ export const Exponentialfunktionen: React.FC = () => {
       }
     }
 
-    const fMouse = mx >= 0 ? f((mx - layout.cx) / layout.unitPx) : undefined;
-    return drawCrosshair(ctx, layout, mx, my, fMouse);
+    if (mx >= 0) {
+      const mathX = vp.toMathX(mx);
+      const fVal = f(mathX);
+      const snapY = toY(fVal);
+      if (snapY > 0 && snapY < h) {
+        ctx.beginPath(); ctx.arc(mx, snapY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,212,255,0.6)'; ctx.fill();
+      }
+      return 'x: ' + mathX.toFixed(1) + '   y: ' + vp.toMathY(my).toFixed(1) + '   f(x) = ' + fmt(fVal);
+    }
+    return '';
   }, [f, d, showLn]);
 
   // Equation
@@ -90,7 +95,7 @@ export const Exponentialfunktionen: React.FC = () => {
       <h1>Exponential<em>funktionen</em></h1>
       <p className="subtitle">Wachstum, Zerfall, Asymptoten &amp; Logarithmus</p>
 
-      <MathCanvas draw={draw} />
+      <CoordinateSystem draw={draw} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
         <div className="ctrl">

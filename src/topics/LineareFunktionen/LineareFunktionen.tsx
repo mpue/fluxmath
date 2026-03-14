@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
-import { LinearCanvas } from './LinearCanvas';
-
-function fmt(n: number): string {
-  return Math.abs(n) < 0.001 ? '0' : n.toFixed(1);
-}
+import React, { useState, useCallback } from 'react';
+import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { drawPoint, C, fmt } from '../../shared/canvasUtils';
 
 export const LineareFunktionen: React.FC = () => {
   const [sliderM, setSliderM] = useState(10);
@@ -11,6 +8,87 @@ export const LineareFunktionen: React.FC = () => {
 
   const m = sliderM / 10;
   const b = sliderB / 10;
+
+  const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
+    const { toX, toY, w, h } = vp;
+
+    // Slope triangle
+    if (Math.abs(m) > 0.01) {
+      const tx = 0, ty = b;
+      const x1 = toX(tx), y1 = toY(ty);
+      const x2 = toX(tx + 1), y2 = toY(ty);
+      const x3 = toX(tx + 1), y3 = toY(ty + m);
+
+      ctx.fillStyle = C.triFill;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath();
+      ctx.fill();
+
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = C.tri;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = '11px "Share Tech Mono", monospace';
+      ctx.fillStyle = C.triLabel;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('\u0394x = 1', (x1 + x2) / 2, Math.max(y1, y2) + 5);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText('\u0394y = ' + fmt(m), x2 + 8, (y2 + y3) / 2);
+    }
+
+    // Main line with glow
+    const farLeft = vp.xMin - 1;
+    const farRight = vp.xMax + 1;
+    ctx.shadowColor = C.lineGlow;
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = C.line;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(toX(farLeft), toY(m * farLeft + b));
+    ctx.lineTo(toX(farRight), toY(m * farRight + b));
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // y-intercept point
+    drawPoint(ctx, toX(0), toY(b), C.yint, C.yintGlow);
+    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.fillStyle = C.yintLabel;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const yIntOff = (m >= 0) ? 16 : -16;
+    ctx.fillText('(0 | ' + fmt(b) + ')', toX(0) + 12, toY(b) + yIntOff);
+
+    // Zero point
+    if (Math.abs(m) > 0.001) {
+      const zx = -b / m;
+      const zPx = toX(zx);
+      if (zPx > -20 && zPx < w + 20) {
+        drawPoint(ctx, zPx, toY(0), C.zero, C.zeroGlow);
+        ctx.font = '11px "Share Tech Mono", monospace';
+        ctx.fillStyle = C.zeroLabel;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText('(' + fmt(zx) + ' | 0)', zPx, toY(0) + 12);
+      }
+    }
+
+    // Cursor snap
+    if (mx >= 0) {
+      const mathX = vp.toMathX(mx);
+      const fVal = m * mathX + b;
+      const snapY = toY(fVal);
+      if (snapY > 0 && snapY < h) {
+        ctx.beginPath();
+        ctx.arc(mx, snapY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,212,255,0.6)';
+        ctx.fill();
+      }
+      return 'x: ' + mathX.toFixed(1) + '   y: ' + vp.toMathY(my).toFixed(1) + '   f(x) = ' + fmt(fVal);
+    }
+    return '';
+  }, [m, b]);
 
   // Equation display
   let equation: string;
@@ -48,7 +126,7 @@ export const LineareFunktionen: React.FC = () => {
       <h1>Lineare <em>Funktionen</em></h1>
       <p className="subtitle">Geraden, Steigung &amp; Nullstellen im 4-Quadranten-Koordinatensystem</p>
 
-      <LinearCanvas m={m} b={b} />
+      <CoordinateSystem draw={draw} showQuadrants />
 
       <div className="controls">
         <div className="ctrl">

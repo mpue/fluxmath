@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, argv) => {
   const isDev = argv.mode === 'development';
@@ -35,6 +36,11 @@ module.exports = (env, argv) => {
       new HtmlWebpackPlugin({
         template: './public/index.html',
         title: 'FluxMath — Interaktive Mathematik',
+      }),
+      new CopyWebpackPlugin({
+        patterns: [
+          { from: 'public/*.mp3', to: '[name][ext]' },
+        ],
       }),
     ],
     devServer: {

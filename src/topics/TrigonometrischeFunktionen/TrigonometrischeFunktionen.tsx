@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { MathCanvas } from '../../shared/MathCanvas';
-import { setupCanvas, drawGrid, drawAxes, drawCurve, drawCrosshair, C, fmt } from '../../shared/canvasUtils';
+import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { drawCurve, C, fmt } from '../../shared/canvasUtils';
 
 export const TrigonometrischeFunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -23,11 +23,8 @@ export const TrigonometrischeFunktionen: React.FC = () => {
 
   const f = useCallback((x: number) => a * baseFn(x) + d, [a, baseFn, d]);
 
-  const draw = useCallback((canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, mx: number, my: number) => {
-    const layout = setupCanvas(canvas, ctx);
-    drawGrid(ctx, layout);
-    drawAxes(ctx, layout);
-    const { w, h, toX, toY, unitPx } = layout;
+  const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
+    const { w, h, toX, toY, unitPx } = vp;
 
     // Draw pi markers on x-axis
     ctx.font = '10px "Share Tech Mono", monospace';
@@ -44,12 +41,11 @@ export const TrigonometrischeFunktionen: React.FC = () => {
         ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke();
         ctx.setLineDash([]);
         const label = n === 1 ? '\u03C0' : n === -1 ? '-\u03C0' : n + '\u03C0';
-        ctx.fillText(label, px, layout.cy + 18);
+        ctx.fillText(label, px, vp.cy + 18);
       }
     }
 
-    // Draw main curve
-    drawCurve(ctx, layout, f, C.line, C.lineGlow, 2.5, funcType === 'tan' ? 0.01 : 0.03);
+    drawCurve(ctx, vp, f, C.line, C.lineGlow, 2.5, funcType === 'tan' ? 0.01 : 0.03);
 
     // Period markers
     if (Math.abs(b) > 0.001) {
@@ -57,8 +53,8 @@ export const TrigonometrischeFunktionen: React.FC = () => {
       if (period * unitPx > 20 && period * unitPx < w) {
         // Visualize one period starting from phase shift
         const phaseShift = -c / b;
-        const x1 = toX(phaseShift);
-        const x2 = toX(phaseShift + period);
+      const x1 = toX(phaseShift);
+      const x2 = toX(phaseShift + period);
         if (x1 > -50 && x2 < w + 50) {
           ctx.setLineDash([4, 3]);
           ctx.strokeStyle = 'rgba(255,170,0,0.3)';
@@ -96,8 +92,17 @@ export const TrigonometrischeFunktionen: React.FC = () => {
       ctx.setLineDash([]);
     }
 
-    const fMouse = mx >= 0 ? f((mx - layout.cx) / layout.unitPx) : undefined;
-    return drawCrosshair(ctx, layout, mx, my, fMouse);
+    if (mx >= 0) {
+      const mathX = vp.toMathX(mx);
+      const fVal = f(mathX);
+      const snapY = toY(fVal);
+      if (snapY > 0 && snapY < h) {
+        ctx.beginPath(); ctx.arc(mx, snapY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,212,255,0.6)'; ctx.fill();
+      }
+      return 'x: ' + mathX.toFixed(1) + '   y: ' + vp.toMathY(my).toFixed(1) + '   f(x) = ' + fmt(fVal);
+    }
+    return '';
   }, [f, funcType, a, b, c, d]);
 
   // Equation string
@@ -123,7 +128,7 @@ export const TrigonometrischeFunktionen: React.FC = () => {
       <h1>Trigonometrische <em>Funktionen</em></h1>
       <p className="subtitle">Sinus, Kosinus &amp; Tangens — Amplitude, Periode &amp; Phase</p>
 
-      <MathCanvas draw={draw} />
+      <CoordinateSystem draw={draw} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">

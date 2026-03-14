@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { MathCanvas } from '../../shared/MathCanvas';
-import { setupCanvas, drawGrid, drawAxes, drawCurve, drawCrosshair, drawPoint, C, fmt } from '../../shared/canvasUtils';
+import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
 
 export const GanzrationaleFunktionen: React.FC = () => {
   const [degree, setDegree] = useState(3);
@@ -26,13 +26,10 @@ export const GanzrationaleFunktionen: React.FC = () => {
     setCoeffs(prev => { const n = [...prev]; n[idx] = val; return n; });
   };
 
-  const draw = useCallback((canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, mx: number, my: number) => {
-    const layout = setupCanvas(canvas, ctx);
-    drawGrid(ctx, layout);
-    drawAxes(ctx, layout);
-    const { toX, toY, w } = layout;
+  const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
+    const { toX, toY, w } = vp;
 
-    drawCurve(ctx, layout, evalPoly, C.line, C.lineGlow);
+    drawCurve(ctx, vp, evalPoly, C.line, C.lineGlow);
 
     // y-intercept
     const yInt = evalPoly(0);
@@ -44,8 +41,8 @@ export const GanzrationaleFunktionen: React.FC = () => {
 
     // Find zeros numerically via sign changes
     const step = 0.01;
-    const xFrom = layout.xMin;
-    const xTo = layout.xMax;
+    const xFrom = vp.xMin;
+    const xTo = vp.xMax;
     let prev = evalPoly(xFrom);
     for (let x = xFrom + step; x <= xTo; x += step) {
       const cur = evalPoly(x);
@@ -69,8 +66,17 @@ export const GanzrationaleFunktionen: React.FC = () => {
       prev = cur;
     }
 
-    const fMouse = mx >= 0 ? evalPoly((mx - layout.cx) / layout.unitPx) : undefined;
-    return drawCrosshair(ctx, layout, mx, my, fMouse);
+    if (mx >= 0) {
+      const mathX = vp.toMathX(mx);
+      const fVal = evalPoly(mathX);
+      const snapY = toY(fVal);
+      if (snapY > 0 && snapY < vp.h) {
+        ctx.beginPath(); ctx.arc(mx, snapY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,212,255,0.6)'; ctx.fill();
+      }
+      return 'x: ' + mathX.toFixed(1) + '   y: ' + vp.toMathY(my).toFixed(1) + '   f(x) = ' + fmt(fVal);
+    }
+    return '';
   }, [evalPoly]);
 
   const labels = ['c\u2080 (Konstante)', 'c\u2081 (linear)', 'c\u2082 (quadratisch)', 'c\u2083 (kubisch)', 'c\u2084 (Grad 4)', 'c\u2085 (Grad 5)'];
@@ -95,7 +101,7 @@ export const GanzrationaleFunktionen: React.FC = () => {
       <h1>Ganzrationale <em>Funktionen</em></h1>
       <p className="subtitle">Polynome vom Grad 1 bis 5 — Nullstellen, Symmetrie &amp; Verhalten</p>
 
-      <MathCanvas draw={draw} />
+      <CoordinateSystem draw={draw} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">

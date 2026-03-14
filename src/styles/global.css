@@ -418,6 +418,105 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.6;
 }
 
+/* ============================================================
+   AUDIO PLAYER
+   ============================================================ */
+#player {
+  position: fixed; bottom: 24px; right: 32px; z-index: 150;
+  background: rgba(0,5,7,.97); border: 1px solid rgba(0,212,255,.18);
+  border-radius: 3px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 16px;
+  backdrop-filter: blur(24px); min-width: 300px;
+  box-shadow: 0 0 40px rgba(0,212,255,.06);
+}
+#player::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+}
+.ply-btn {
+  width: 34px; height: 34px; border-radius: 2px;
+  border: 1px solid rgba(0,212,255,.2); background: none; color: var(--cyan);
+  cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center;
+  transition: all .2s; flex-shrink: 0;
+}
+.ply-btn:hover { background: rgba(0,212,255,.08); box-shadow: 0 0 14px rgba(0,212,255,.2); }
+.ply-btn.on { border-color: var(--cyan); box-shadow: 0 0 14px rgba(0,212,255,.3); }
+.ply-info { flex: 1; min-width: 0; }
+.ply-title {
+  font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  color: var(--cyan); letter-spacing: .06em; margin-bottom: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ply-bar { height: 2px; background: var(--dim); border-radius: 1px; cursor: pointer; position: relative; }
+.ply-fill { height: 100%; background: var(--cyan); width: 0%; box-shadow: 0 0 6px var(--cyan); transition: width .1s linear; }
+.ply-time {
+  display: flex; justify-content: space-between; margin-top: 5px;
+  font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--muted);
+}
+.ply-upload {
+  font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--muted);
+  background: none; border: 1px solid var(--dim); border-radius: 2px;
+  padding: 4px 10px; cursor: pointer; transition: all .2s; flex-shrink: 0;
+}
+.ply-upload:hover { color: var(--cyan); border-color: rgba(0,212,255,.3); }
+.ply-vol { display: flex; align-items: center; gap: 6px; }
+.ply-vol input[type="range"] { width: 48px; height: 2px; accent-color: var(--cyan); cursor: pointer; }
+
+/* Waveform bars */
+.wavefm { display: flex; align-items: center; gap: 2px; }
+.wb { width: 2px; border-radius: 1px; background: var(--cyan); opacity: .4; transition: opacity .1s; }
+.wb.a { opacity: 1; box-shadow: 0 0 4px var(--cyan); }
+
+/* ============================================================
+   SOUND FX PANEL
+   ============================================================ */
+#sfxp {
+  position: fixed; bottom: 24px; left: 32px; z-index: 150;
+  background: rgba(0,5,7,.97); border: 1px solid rgba(0,212,255,.12);
+  border-radius: 3px; padding: 12px 16px;
+  backdrop-filter: blur(24px); min-width: 260px;
+}
+#sfxp::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,212,255,.4), transparent);
+}
+.sfx-head {
+  font-family: 'Share Tech Mono', monospace; font-size: 9px;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+}
+.sfx-head::before { content: ''; width: 12px; height: 1px; background: var(--cyan); opacity: .4; }
+.sfx-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 0; border-bottom: 1px solid rgba(0,212,255,.05);
+}
+.sfx-row:last-child { border-bottom: none; }
+.sfx-lbl {
+  font-family: 'Share Tech Mono', monospace; font-size: 9px;
+  letter-spacing: .1em; color: var(--muted); width: 72px; flex-shrink: 0;
+}
+.sfx-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--dim);
+  flex-shrink: 0; transition: background .2s, box-shadow .2s;
+}
+.sfx-dot.loaded { background: var(--lime); box-shadow: 0 0 5px var(--lime); }
+.sfx-dot.playing { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: pdot .4s ease-in-out infinite; }
+.sfx-file {
+  font-family: 'Share Tech Mono', monospace; font-size: 9px;
+  color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sfx-btn {
+  font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--muted);
+  background: none; border: none; cursor: pointer; padding: 2px 4px; transition: color .15s;
+}
+.sfx-btn:hover { color: var(--cyan); }
+.sfx-up {
+  font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--muted);
+  background: none; border: 1px solid var(--dim); border-radius: 2px;
+  padding: 3px 8px; cursor: pointer; transition: all .2s; flex-shrink: 0;
+}
+.sfx-up:hover { color: var(--cyan); border-color: rgba(0,212,255,.3); }
+
 /* Responsive */
 @media (max-width: 640px) {
   .controls { grid-template-columns: 1fr; }

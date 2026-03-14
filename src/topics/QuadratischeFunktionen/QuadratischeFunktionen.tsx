@@ -1,9 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { QuadraticCanvas } from './QuadraticCanvas';
-
-function fmt(n: number): string {
-  return Math.abs(n) < 0.001 ? '0' : n.toFixed(1);
-}
+import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { drawPoint, C, fmt } from '../../shared/canvasUtils';
 
 export const QuadratischeFunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -14,10 +11,98 @@ export const QuadratischeFunktionen: React.FC = () => {
   const b = sliderB / 10;
   const c = sliderC / 10;
 
-  const handleDrag = useCallback((newB: number, newC: number) => {
-    setSliderB(Math.round(Math.max(-40, Math.min(40, newB * 10))));
-    setSliderC(Math.round(Math.max(-60, Math.min(60, newC * 10))));
-  }, []);
+  const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
+    const { toX, toY, w, h, unitPx } = vp;
+
+    // Vertex
+    const hVertex = Math.abs(a) > 0.001 ? -b / (2 * a) : 0;
+    const kVertex = Math.abs(a) > 0.001 ? c - (b * b) / (4 * a) : c;
+
+    // Axis of symmetry
+    if (Math.abs(a) > 0.001) {
+      const symPx = toX(hVertex);
+      if (symPx > 0 && symPx < w) {
+        ctx.setLineDash([6, 5]);
+        ctx.strokeStyle = 'rgba(255,170,0,0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(symPx, 0); ctx.lineTo(symPx, h); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '10px "Share Tech Mono", monospace';
+        ctx.fillStyle = 'rgba(255,170,0,0.6)';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillText('x = ' + fmt(hVertex), symPx, 20);
+      }
+    }
+
+    // Parabola
+    ctx.shadowColor = C.lineGlow;
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = C.line;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    let started = false;
+    const step = 0.05;
+    for (let xVal = vp.xMin - 1; xVal <= vp.xMax + 1; xVal += step) {
+      const yVal = a * xVal * xVal + b * xVal + c;
+      const px = toX(xVal); const py = toY(yVal);
+      if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // y-intercept
+    drawPoint(ctx, toX(0), toY(c), C.yint, C.yintGlow);
+    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.fillStyle = C.yintLabel;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('(0 | ' + fmt(c) + ')', toX(0) + 12, toY(c) + (a >= 0 ? 16 : -16));
+
+    // Zeros
+    if (Math.abs(a) > 0.001) {
+      const disc = b * b - 4 * a * c;
+      if (disc >= 0) {
+        const sqrtDisc = Math.sqrt(disc);
+        const x1 = (-b + sqrtDisc) / (2 * a);
+        const x2 = (-b - sqrtDisc) / (2 * a);
+        const zeros = disc < 0.001 ? [x1] : [x1, x2];
+        for (const zx of zeros) {
+          const zPx = toX(zx);
+          if (zPx > -20 && zPx < w + 20) {
+            drawPoint(ctx, zPx, toY(0), C.zero, C.zeroGlow);
+            ctx.font = '11px "Share Tech Mono", monospace';
+            ctx.fillStyle = C.zeroLabel;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            ctx.fillText('(' + fmt(zx) + ' | 0)', zPx, toY(0) + 12);
+          }
+        }
+      }
+    }
+
+    // Vertex point
+    if (Math.abs(a) > 0.001) {
+      const vPx = toX(hVertex); const vPy = toY(kVertex);
+      if (vPx > -20 && vPx < w + 20 && vPy > -20 && vPy < h + 20) {
+        drawPoint(ctx, vPx, vPy, C.orange, C.orangeGlow, 8);
+        ctx.font = '11px "Share Tech Mono", monospace';
+        ctx.fillStyle = C.orangeLabel;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText('S(' + fmt(hVertex) + ' | ' + fmt(kVertex) + ')', vPx + 12, vPy + (a > 0 ? 16 : -16));
+      }
+    }
+
+    // Cursor snap
+    if (mx >= 0) {
+      const mathX = vp.toMathX(mx);
+      const fVal = a * mathX * mathX + b * mathX + c;
+      const snapY = toY(fVal);
+      if (snapY > 0 && snapY < h) {
+        ctx.beginPath(); ctx.arc(mx, snapY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,212,255,0.6)'; ctx.fill();
+      }
+      return 'x: ' + mathX.toFixed(1) + '   y: ' + vp.toMathY(my).toFixed(1) + '   f(x) = ' + fmt(fVal);
+    }
+    return '';
+  }, [a, b, c]);
 
   // Equation display
   let equation: string;
@@ -94,7 +179,7 @@ export const QuadratischeFunktionen: React.FC = () => {
       <h1>Quadratische <em>Funktionen</em></h1>
       <p className="subtitle">Parabeln, Scheitel, Nullstellen &amp; Diskriminante</p>
 
-      <QuadraticCanvas a={a} b={b} c={c} onDrag={handleDrag} />
+      <CoordinateSystem draw={draw} showQuadrants />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
         <div className="ctrl">
