@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { MathCanvas } from '../../shared/MathCanvas';
 import { C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { NormalExercises } from './NormalExercises';
 
 function normalPdf(x: number, mu: number, sigma: number): number {
   const z = (x - mu) / sigma;
@@ -241,6 +242,7 @@ export const Normalverteilung: React.FC = () => {
           bei μ ± 2σ sind es 95.45% und bei μ ± 3σ ca. 99.73%.
         </p>
       </div>
+      <NormalExercises />
     </>
   );
 };

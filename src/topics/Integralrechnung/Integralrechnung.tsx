@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { IntegralExercises } from './IntegralExercises';
 
 const FUNCTIONS = [
   { id: 'poly', label: 'Polynom', desc: 'f(x) = x² − 2', F: 'F(x) = x³/3 − 2x + C' },
@@ -212,6 +213,7 @@ export const Integralrechnung: React.FC = () => {
           entspricht dem Funktionswert f(x).
         </p>
       </div>
+      <IntegralExercises />
     </>
   );
 };

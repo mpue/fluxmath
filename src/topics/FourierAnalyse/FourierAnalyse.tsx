@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { MathCanvas } from '../../shared/MathCanvas';
 import { C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { FourierExercises } from './FourierExercises';
 
 /* ─── Signal presets ─── */
 type SignalType = 'square' | 'sawtooth' | 'triangle' | 'pulse';
@@ -773,6 +774,7 @@ export const FourierAnalyse: React.FC = () => {
           </>
         )}
       </div>
+      <FourierExercises />
     </>
   );
 };

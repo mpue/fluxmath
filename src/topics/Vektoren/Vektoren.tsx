@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { VectorExercises } from './VectorExercises';
 
 export const Vektoren: React.FC = () => {
   const [ax, setAx] = useState(30);
@@ -272,6 +273,7 @@ export const Vektoren: React.FC = () => {
           Im 3D-Raum kommen das <strong>Kreuzprodukt</strong> und Geraden/Ebenen-Gleichungen hinzu.
         </p>
       </div>
+      <VectorExercises />
     </>
   );
 };

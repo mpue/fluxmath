@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { ExponentialExercises } from './ExponentialExercises';
 
 export const Exponentialfunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -178,6 +179,7 @@ export const Exponentialfunktionen: React.FC = () => {
                               <M>{'\\ln(x)'}</M>. Es gilt: e^(ln(x)) = x und ln(e^x) = x.
         </p>
       </div>
+      <ExponentialExercises />
     </>
   );
 };

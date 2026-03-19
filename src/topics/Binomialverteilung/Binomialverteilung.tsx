@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { MathCanvas } from '../../shared/MathCanvas';
 import { C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { BinomialExercises } from './BinomialExercises';
 
 function binomCoeff(n: number, k: number): number {
   if (k < 0 || k > n) return 0;
@@ -252,6 +253,7 @@ export const Binomialverteilung: React.FC = () => {
           es ist, höchstens k Treffer zu erzielen. Sie wird durch die eingefärbte Fläche im Diagramm dargestellt.
         </p>
       </div>
+      <BinomialExercises />
     </>
   );
 };

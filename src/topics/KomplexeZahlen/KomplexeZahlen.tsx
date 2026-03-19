@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { ComplexExercises } from './ComplexExercises';
 
 type Op = 'add' | 'sub' | 'mul' | 'div' | 'conjugate' | 'polar';
 
@@ -331,6 +332,7 @@ export const KomplexeZahlen: React.FC = () => {
             <M>{'e^{i\\pi} + 1 = 0'}</M>.</p>
         )}
       </div>
+      <ComplexExercises />
     </>
   );
 };

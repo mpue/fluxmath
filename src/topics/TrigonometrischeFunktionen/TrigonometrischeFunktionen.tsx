@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { TrigExercises } from './TrigExercises';
 
 export const TrigonometrischeFunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -232,6 +233,7 @@ export const TrigonometrischeFunktionen: React.FC = () => {
           und die Periode π statt 2π.
         </p>
       </div>
+      <TrigExercises />
     </>
   );
 };

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { DifferentialExercises } from './DifferentialExercises';
 
 const FUNCTIONS = [
   { id: 'poly', label: 'Polynom', desc: 'f(x) = x³ − 3x' },
@@ -218,6 +219,7 @@ export const Differentialrechnung: React.FC = () => {
           Dazu Produkt-, Quotienten- und Kettenregel.
         </p>
       </div>
+      <DifferentialExercises />
     </>
   );
 };
