@@ -28,6 +28,12 @@ export const C = {
   orange: '#ff8800',
   orangeGlow: 'rgba(255,136,0,0.5)',
   orangeLabel: 'rgba(255,136,0,0.9)',
+  cyan: '#00d4ff',
+  cyanGlow: 'rgba(0,212,255,0.5)',
+  lime: '#00ff88',
+  limeGlow: 'rgba(0,255,136,0.5)',
+  amber: '#ffaa00',
+  amberGlow: 'rgba(255,170,0,0.5)',
 };
 
 export function fmt(n: number, decimals = 1): string {
