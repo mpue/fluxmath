@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawPoint, C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 export const LineareFunktionen: React.FC = () => {
   const [sliderM, setSliderM] = useState(10);
@@ -182,17 +183,17 @@ export const LineareFunktionen: React.FC = () => {
       <div className="explanation">
         <h2>Erläuterung</h2>
         <p>
-          Eine <strong>lineare Funktion</strong> hat die Form <span className="formula">f(x) = m &middot; x + b</span>.
+          Eine <strong>lineare Funktion</strong> hat die Form <M>{'f(x) = m \\cdot x + b'}</M>.
           Der Parameter <strong>m</strong> ist die <strong>Steigung</strong> — er bestimmt, wie steil die Gerade verläuft.
           Ist m &gt; 0, steigt die Gerade; ist m &lt; 0, fällt sie; bei m = 0 verläuft sie horizontal.
         </p>
         <p>
           Der Parameter <strong>b</strong> ist der <strong>y-Achsenabschnitt</strong> — der Punkt, an dem die Gerade
-          die y-Achse schneidet, also <span className="formula">(0 | b)</span>.
+          die y-Achse schneidet, also <M>{'(0 \\mid b)'}</M>.
         </p>
         <p>
-          Die <strong>Nullstelle</strong> ist der x-Wert, bei dem <span className="formula">f(x) = 0</span> gilt.
-          Durch Umstellen erhält man <span className="formula">x&#x2080; = &#x2212;b / m</span> (sofern m &#x2260; 0).
+          Die <strong>Nullstelle</strong> ist der x-Wert, bei dem <M>{'f(x) = 0'}</M> gilt.
+          Durch Umstellen erhält man <M>{'x_0 = \\frac{-b}{m}'}</M> (sofern m ≠ 0).
           Das ist der Schnittpunkt der Geraden mit der x-Achse.
         </p>
         <p>

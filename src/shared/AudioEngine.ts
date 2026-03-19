@@ -26,11 +26,14 @@ class AudioEngine {
 
   private musicStarted = false;
   private autoplayBound = false;
+  private pendingAutoplay = false;
+  private audioUnlocked = false;
+  private audioCtx: AudioContext | null = null;
 
   constructor() {
-    this.autoLoadMusic();
     this.autoLoadSfx();
     this.setupAutoplay();
+    this.autoLoadMusic();
   }
 
   private emit() {
@@ -91,31 +94,66 @@ class AudioEngine {
   }
 
   private autoLoadMusic() {
-    const t = new Audio('music.mp3');
+    const t = new Audio('/music.mp3');
     t.addEventListener('canplaythrough', () => {
-      this.loadAudio('music.mp3', 'music');
+      this.loadAudio('/music.mp3', 'music');
+      if (this.pendingAutoplay) {
+        this.pendingAutoplay = false;
+        this.tryAutoplay();
+      }
     }, { once: true });
     t.addEventListener('error', () => {}, { once: true });
     t.load();
+  }
+
+  /** Unlock WebAudio on first real user gesture so subsequent plays work */
+  private unlockAudio() {
+    if (this.audioUnlocked) return;
+    this.audioUnlocked = true;
+    try {
+      this.audioCtx = new AudioContext();
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+      // Play a silent buffer to fully unlock HTMLAudioElement playback
+      const buf = this.audioCtx.createBuffer(1, 1, 22050);
+      const src = this.audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.audioCtx.destination);
+      src.start(0);
+    } catch (_) {}
+  }
+
+  private tryAutoplay() {
+    if (!this.aud || this._playing) return;
+    this.aud.play().then(() => {
+      this._playing = true;
+      this.musicStarted = true;
+      this.emit();
+    }).catch(() => {});
   }
 
   private setupAutoplay() {
     if (this.autoplayBound) return;
     this.autoplayBound = true;
     const start = () => {
-      if (this.musicStarted || !this.aud) return;
+      this.unlockAudio();
+      if (this.musicStarted) { cleanup(); return; }
+      if (!this.aud) {
+        this.pendingAutoplay = true;
+        return;
+      }
       this.musicStarted = true;
-      setTimeout(() => {
-        this.aud?.play().then(() => {
-          this._playing = true;
-          this.emit();
-        }).catch(() => { this.musicStarted = false; });
-      }, 200);
-      document.removeEventListener('click', start);
-      document.removeEventListener('keydown', start);
+      this.aud.play().then(() => {
+        this._playing = true;
+        this.emit();
+        cleanup();
+      }).catch(() => { this.musicStarted = false; });
     };
-    document.addEventListener('click', start);
-    document.addEventListener('keydown', start);
+    // Only real user-activation events (mousemove/mouseenter do NOT unlock audio)
+    const events = ['click', 'keydown', 'pointerdown', 'touchstart'] as const;
+    const cleanup = () => events.forEach(ev => document.removeEventListener(ev, start));
+    events.forEach(ev => document.addEventListener(ev, start));
   }
 
   togglePlay() {
@@ -148,7 +186,7 @@ class AudioEngine {
 
   // SFX
   private autoLoadSfx() {
-    const map: Record<SfxKey, string> = { in: 'slide_in.mp3', out: 'slide_out.mp3', click: 'click.mp3' };
+    const map: Record<SfxKey, string> = { in: '/slide_in.mp3', out: '/slide_out.mp3', click: '/click.mp3' };
     (Object.keys(map) as SfxKey[]).forEach(k => {
       this.sfxLoad(k, map[k], map[k]);
     });
@@ -169,6 +207,7 @@ class AudioEngine {
 
   sfxPlay(k: SfxKey) {
     if (!this.sfx[k]) return;
+    this.unlockAudio();
     const a = this.sfx[k]!.cloneNode() as HTMLAudioElement;
     a.volume = 0.55;
     this.sfxPlayingDots[k] = true;

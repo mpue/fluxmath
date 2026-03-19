@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 export const Vektoren: React.FC = () => {
   const [ax, setAx] = useState(30);
@@ -255,19 +256,19 @@ export const Vektoren: React.FC = () => {
         <h2>Erläuterung</h2>
         <p>
           Ein <strong>Vektor</strong> beschreibt eine Verschiebung im Raum mit Richtung und Betrag.
-          Der <strong>Betrag</strong> (Länge) ist <span className="formula">|\u20D7v| = √(vₓ² + vᵧ²)</span>.
+          Der <strong>Betrag</strong> (Länge) ist <M>{String.raw`|\vec{v}| = \sqrt{v_x^2 + v_y^2}`}</M>.
         </p>
         <p>
-          <strong>Addition</strong>: <span className="formula">\u20D7a + \u20D7b = (aₓ+bₓ | aᵧ+bᵧ)</span> — Parallelogrammregel.
-          <strong> Subtraktion</strong>: <span className="formula">\u20D7a − \u20D7b</span> zeigt von der Spitze von \u20D7b zur Spitze von \u20D7a.
+          <strong>Addition</strong>: <M>{String.raw`\vec{a} + \vec{b} = (a_x + b_x \mid a_y + b_y)`}</M> — Parallelogrammregel.
+          <strong> Subtraktion</strong>: <M>{String.raw`\vec{a} - \vec{b}`}</M> zeigt von der Spitze von \u20D7b zur Spitze von \u20D7a.
         </p>
         <p>
-          Das <strong>Skalarprodukt</strong> <span className="formula">\u20D7a · \u20D7b = aₓbₓ + aᵧbᵧ = |\u20D7a|·|\u20D7b|·cos(φ)</span>{' '}
+          Das <strong>Skalarprodukt</strong> <M>{String.raw`\vec{a} \cdot \vec{b} = a_x b_x + a_y b_y = |\vec{a}| \cdot |\vec{b}| \cdot \cos(\varphi)`}</M>{' '}
           liefert eine <strong>Zahl</strong> (keinen Vektor!). Ist es 0, stehen die Vektoren <strong>senkrecht</strong> aufeinander.
         </p>
         <p>
           Der <strong>Winkel</strong> zwischen zwei Vektoren ergibt sich aus{' '}
-          <span className="formula">cos(φ) = (\u20D7a · \u20D7b) / (|\u20D7a| · |\u20D7b|)</span>.
+          <M>{String.raw`\cos(\varphi) = \frac{\vec{a} \cdot \vec{b}}{|\vec{a}| \cdot |\vec{b}|}`}</M>.
           Im 3D-Raum kommen das <strong>Kreuzprodukt</strong> und Geraden/Ebenen-Gleichungen hinzu.
         </p>
       </div>

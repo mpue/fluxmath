@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 export const GanzrationaleFunktionen: React.FC = () => {
   const [degree, setDegree] = useState(3);
@@ -168,7 +169,7 @@ export const GanzrationaleFunktionen: React.FC = () => {
         <h2>Erläuterung</h2>
         <p>
           Eine <strong>ganzrationale Funktion</strong> (Polynom) vom Grad n hat die Form
-          <span className="formula"> f(x) = cₙxⁿ + cₙ₋₁xⁿ⁻¹ + … + c₁x + c₀</span>.
+          <M>{'f(x) = c_n x^n + c_{n-1} x^{n-1} + \\ldots + c_1 x + c_0'}</M>.
           Der <strong>Grad</strong> bestimmt die maximale Anzahl an Nullstellen und das Verhalten für x → ±∞.
         </p>
         <p>

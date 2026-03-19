@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 const FUNCTIONS = [
   { id: 'poly', label: 'Polynom', desc: 'f(x) = x² − 2', F: 'F(x) = x³/3 − 2x + C' },
@@ -191,20 +192,20 @@ export const Integralrechnung: React.FC = () => {
       <div className="explanation">
         <h2>Erläuterung</h2>
         <p>
-          Das <strong>bestimmte Integral</strong> <span className="formula">∫ₐᵇ f(x) dx</span> berechnet den
-          <strong> orientierten Flächeninhalt</strong> zwischen dem Graphen von f und der x-Achse im Intervall [a, b].
+          Das <strong>bestimmte Integral</strong> <M>{'\\int_a^b f(x)\\,dx'}</M> berechnet den
+          <strong> orientierten Fl\u00e4cheninhalt</strong> zwischen dem Graphen von f und der x-Achse im Intervall [a, b].
         </p>
         <p>
-          Flächen <strong>oberhalb</strong> der x-Achse zählen positiv, Flächen <strong>unterhalb</strong> negativ.
+          Fl\u00e4chen <strong>oberhalb</strong> der x-Achse z\u00e4hlen positiv, Fl\u00e4chen <strong>unterhalb</strong> negativ.
           Der <strong>Hauptsatz der Differential- und Integralrechnung</strong> besagt:
-          <span className="formula"> ∫ₐᵇ f(x) dx = F(b) − F(a)</span>, wobei F eine Stammfunktion von f ist (F' = f).
+          <M>{'\\int_a^b f(x)\\,dx = F(b) - F(a)'}</M>, wobei F eine Stammfunktion von f ist (F' = f).
         </p>
         <p>
           Wichtige <strong>Stammfunktionen</strong>:{' '}
-          <span className="formula">∫ xⁿ dx = xⁿ⁺¹/(n+1)</span>,{' '}
-          <span className="formula">∫ eˣ dx = eˣ</span>,{' '}
-          <span className="formula">∫ sin(x) dx = −cos(x)</span>,{' '}
-          <span className="formula">∫ 1/x dx = ln|x|</span>.
+          <M>{'\\int x^n\\,dx = \\frac{x^{n+1}}{n+1}'}</M>,{' '}
+          <M>{'\\int e^x\\,dx = e^x'}</M>,{' '}
+          <M>{'\\int \\sin(x)\\,dx = -\\cos(x)'}</M>,{' '}
+          <M>{'\\int \\frac{1}{x}\\,dx = \\ln|x|'}</M>.
         </p>
         <p>
           Die grüne Kurve zeigt die <strong>Stammfunktion</strong> F(x) = ∫₀ˣ f(t) dt — ihre Steigung an jeder Stelle

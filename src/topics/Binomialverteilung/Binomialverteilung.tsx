@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { MathCanvas } from '../../shared/MathCanvas';
 import { C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 function binomCoeff(n: number, k: number): number {
   if (k < 0 || k > n) return 0;
@@ -235,19 +236,19 @@ export const Binomialverteilung: React.FC = () => {
         <h2>Erläuterung</h2>
         <p>
           Die <strong>Binomialverteilung</strong> beschreibt die Anzahl der Treffer bei n unabhängigen Versuchen
-          mit jeweils der Trefferwahrscheinlichkeit p. Man schreibt <span className="formula">X ~ B(n, p)</span>.
+          mit jeweils der Trefferwahrscheinlichkeit p. Man schreibt <M>{'X \\sim B(n, p)'}</M>.
         </p>
         <p>
           Die Wahrscheinlichkeit für genau k Treffer ist:{' '}
-          <span className="formula">P(X = k) = C(n,k) · p^k · (1−p)^(n−k)</span>,
-          wobei <span className="formula">C(n,k) = n! / (k! · (n−k)!)</span> der Binomialkoeffizient ist.
+          <M>{'P(X = k) = \\binom{n}{k} \\cdot p^k \\cdot (1-p)^{n-k}'}</M>,
+          wobei <M>{'\\binom{n}{k} = \\frac{n!}{k! \\cdot (n-k)!}'}</M> der Binomialkoeffizient ist.
         </p>
         <p>
-          <strong>Erwartungswert</strong>: <span className="formula">μ = E(X) = n · p</span> — der im Mittel zu erwartende Wert.
-          <strong> Standardabweichung</strong>: <span className="formula">σ = √(n · p · (1−p))</span> — Maß für die Streuung.
+          <strong>Erwartungswert</strong>: <M>{'\\mu = E(X) = n \\cdot p'}</M> — der im Mittel zu erwartende Wert.
+          <strong> Standardabweichung</strong>: <M>{'\\sigma = \\sqrt{n \\cdot p \\cdot (1-p)}'}</M> — Maß für die Streuung.
         </p>
         <p>
-          Die <strong>kumulierte Verteilung</strong> <span className="formula">P(X ≤ k)</span> gibt an, wie wahrscheinlich
+          Die <strong>kumulierte Verteilung</strong> <M>{'P(X \\leq k)'}</M> gibt an, wie wahrscheinlich
           es ist, höchstens k Treffer zu erzielen. Sie wird durch die eingefärbte Fläche im Diagramm dargestellt.
         </p>
       </div>

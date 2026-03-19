@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 const FUNCTIONS = [
   { id: 'poly', label: 'Polynom', desc: 'f(x) = x³ − 3x' },
@@ -210,10 +211,10 @@ export const Differentialrechnung: React.FC = () => {
         </p>
         <p>
           Wichtige <strong>Ableitungsregeln</strong>:{' '}
-          <span className="formula">(xⁿ)' = n·xⁿ⁻¹</span>,{' '}
-          <span className="formula">(eˣ)' = eˣ</span>,{' '}
-          <span className="formula">(sin x)' = cos x</span>,{' '}
-          <span className="formula">(cos x)' = −sin x</span>.{' '}
+          <M>{'(x^n)\' = n \\cdot x^{n-1}'}</M>,{' '}
+          <M>{'(e^x)\' = e^x'}</M>,{' '}
+          <M>{'(\\sin x)\' = \\cos x'}</M>,{' '}
+          <M>{'(\\cos x)\' = -\\sin x'}</M>.{' '}
           Dazu Produkt-, Quotienten- und Kettenregel.
         </p>
       </div>

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 export const Exponentialfunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -161,12 +162,12 @@ export const Exponentialfunktionen: React.FC = () => {
       <div className="explanation">
         <h2>Erläuterung</h2>
         <p>
-          Eine <strong>Exponentialfunktion</strong> hat die Form <span className="formula">f(x) = a · e^(kx) + d</span>.
-          Die Eulersche Zahl <span className="formula">e ≈ 2.718</span> ist dabei die natürliche Basis.
+          Eine <strong>Exponentialfunktion</strong> hat die Form <M>{'f(x) = a \\cdot e^{kx} + d'}</M>.
+          Die Eulersche Zahl <M>{'e \\approx 2{,}718'}</M> ist dabei die natürliche Basis.
         </p>
         <p>
           Ist <strong>k &gt; 0</strong>, wächst die Funktion exponentiell; bei <strong>k &lt; 0</strong> fällt sie (Zerfall).
-          Die <strong>Verdopplungszeit</strong> (bzw. Halbwertszeit) beträgt <span className="formula">t = ln(2) / |k|</span>.
+          Die <strong>Verdopplungszeit</strong> (bzw. Halbwertszeit) beträgt <M>{'t = \\frac{\\ln 2}{|k|}'}</M>.
         </p>
         <p>
           Der Parameter <strong>d</strong> verschiebt die waagerechte <strong>Asymptote</strong> — für x → −∞ (bei k &gt; 0)
@@ -174,7 +175,7 @@ export const Exponentialfunktionen: React.FC = () => {
         </p>
         <p>
           Die <strong>Umkehrfunktion</strong> der Exponentialfunktion ist der <strong>natürliche Logarithmus</strong>{' '}
-          <span className="formula">ln(x)</span>. Es gilt: e^(ln(x)) = x und ln(e^x) = x.
+                              <M>{'\\ln(x)'}</M>. Es gilt: e^(ln(x)) = x und ln(e^x) = x.
         </p>
       </div>
     </>

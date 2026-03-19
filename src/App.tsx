@@ -39,17 +39,18 @@ const SfxTriggers: React.FC = () => {
     }
   }, [location.pathname]);
 
-  // Global click SFX — fires on any <button> except inside the audio panels
+  // Global hover SFX — fires on any <button> / <a> except inside the audio panels
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const btn = target.closest('button');
-      if (!btn) return;
-      if (btn.closest('#player') || btn.closest('#sfxp')) return;
+    const handler = (e: Event) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      const el = target.closest('button, a');
+      if (!el) return;
+      if (el.closest('#player') || el.closest('#sfxp')) return;
       audioEngine.sfxPlay('click');
     };
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    document.addEventListener('mouseenter', handler, true);
+    return () => document.removeEventListener('mouseenter', handler, true);
   }, []);
 
   return null;

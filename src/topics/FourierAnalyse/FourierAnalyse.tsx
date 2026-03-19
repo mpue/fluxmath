@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { MathCanvas } from '../../shared/MathCanvas';
 import { C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 /* ─── Signal presets ─── */
 type SignalType = 'square' | 'sawtooth' | 'triangle' | 'pulse';
@@ -729,8 +730,8 @@ export const FourierAnalyse: React.FC = () => {
             </p>
             <p>
               Die Koeffizienten berechnen sich als:
-              <span className="formula"> aₙ = (1/π) ∫₀²π f(t)·cos(nt) dt</span> und
-              <span className="formula"> bₙ = (1/π) ∫₀²π f(t)·sin(nt) dt</span>.
+              <M>{'a_n = \\frac{1}{\\pi} \\int_0^{2\\pi} f(t) \\cdot \\cos(nt)\\,dt'}</M> und
+              <M>{'b_n = \\frac{1}{\\pi} \\int_0^{2\\pi} f(t) \\cdot \\sin(nt)\\,dt'}</M>.
             </p>
             <p>
               Mit steigender Zahl N der Harmonischen nähert sich die Rekonstruktion dem Originalsignal.

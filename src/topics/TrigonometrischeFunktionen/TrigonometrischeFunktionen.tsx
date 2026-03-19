@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 export const TrigonometrischeFunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -213,7 +214,7 @@ export const TrigonometrischeFunktionen: React.FC = () => {
       <div className="explanation">
         <h2>Erläuterung</h2>
         <p>
-          Die allgemeine Form ist <span className="formula">f(x) = a · {funcType}(bx + c) + d</span>.
+          Die allgemeine Form ist <M>{`f(x) = a \\cdot \\text{${funcType}}(bx + c) + d`}</M>.
           Die Parameter beeinflussen den Graphen systematisch:
         </p>
         <p>
@@ -223,11 +224,11 @@ export const TrigonometrischeFunktionen: React.FC = () => {
           <strong> d</strong> = <strong>vertikale Verschiebung</strong>.
         </p>
         <p>
-          Wichtige Werte: <span className="formula">sin(0) = 0, sin(π/2) = 1, cos(0) = 1, cos(π/2) = 0</span>.
-          Die Beziehung <span className="formula">cos(x) = sin(x + π/2)</span> verbindet Sinus und Kosinus.
+          Wichtige Werte: <M>{'\\sin(0) = 0,\\; \\sin\\!\\left(\\frac{\\pi}{2}\\right) = 1,\\; \\cos(0) = 1,\\; \\cos\\!\\left(\\frac{\\pi}{2}\\right) = 0'}</M>.
+          Die Beziehung <M>{'\\cos(x) = \\sin\\!\\left(x + \\frac{\\pi}{2}\\right)'}</M> verbindet Sinus und Kosinus.
         </p>
         <p>
-          Der <strong>Tangens</strong> hat Definitionslücken (Polstellen) bei <span className="formula">x = π/2 + n·π</span>
+          Der <strong>Tangens</strong> hat Definitionslücken (Polstellen) bei <M>{'x = \\frac{\\pi}{2} + n\\pi'}</M>
           und die Periode π statt 2π.
         </p>
       </div>

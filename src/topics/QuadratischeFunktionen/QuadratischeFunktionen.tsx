@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawPoint, C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 export const QuadratischeFunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -261,27 +262,27 @@ export const QuadratischeFunktionen: React.FC = () => {
       <div className="explanation">
         <h2>Erläuterung</h2>
         <p>
-          Eine <strong>quadratische Funktion</strong> hat die allgemeine Form <span className="formula">f(x) = ax² + bx + c</span>.
+          Eine <strong>quadratische Funktion</strong> hat die allgemeine Form <M>{'f(x) = ax^2 + bx + c'}</M>.
           Ihr Graph ist eine <strong>Parabel</strong>. Der Parameter <strong>a</strong> bestimmt die Öffnungsrichtung
           und -weite: ist a &gt; 0, öffnet sie nach oben; ist a &lt; 0, nach unten. Je größer |a|, desto schmaler die Parabel.
         </p>
         <p>
           Der <strong>Scheitel</strong> (Vertex) ist der tiefste bzw. höchste Punkt der Parabel.
-          Seine Koordinaten sind <span className="formula">S(−b/(2a) | c − b²/(4a))</span>.
-          Die <strong>Scheitelform</strong> lautet <span className="formula">f(x) = a(x − h)² + k</span>,
+          Seine Koordinaten sind <M>{'S\\!\\left(-\\frac{b}{2a}\\,\\middle|\\, c - \\frac{b^2}{4a}\\right)'}</M>.
+          Die <strong>Scheitelform</strong> lautet <M>{'f(x) = a(x - h)^2 + k'}</M>,
           wobei (h | k) der Scheitel ist.
         </p>
         <p>
           Die <strong>Nullstellen</strong> berechnet man mit der <strong>Diskriminante</strong>{' '}
-          <span className="formula">D = b² − 4ac</span>:
+                              <M>{'D = b^2 - 4ac'}</M>:
         </p>
         <p>
-          Ist D &gt; 0 → zwei Nullstellen: <span className="formula">x₁,₂ = (−b ± √D) / (2a)</span>.
+          Ist D &gt; 0 → zwei Nullstellen: <M>{'x_{1,2} = \\frac{-b \\pm \\sqrt{D}}{2a}'}</M>.
           Ist D = 0 → eine doppelte Nullstelle. Ist D &lt; 0 → keine reellen Nullstellen.
         </p>
         <p>
           Die <strong>Symmetrieachse</strong> verläuft senkrecht durch den Scheitel bei{' '}
-          <span className="formula">x = −b/(2a)</span>. Jede Parabel ist achsensymmetrisch zu dieser Geraden.
+                              <M>{'x = -\\frac{b}{2a}'}</M>. Jede Parabel ist achsensymmetrisch zu dieser Geraden.
         </p>
       </div>
     </>

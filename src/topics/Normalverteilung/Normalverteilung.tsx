@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { MathCanvas } from '../../shared/MathCanvas';
 import { C, fmt } from '../../shared/canvasUtils';
+import { Math as M } from '../../shared/Math';
 
 function normalPdf(x: number, mu: number, sigma: number): number {
   const z = (x - mu) / sigma;
@@ -224,15 +225,15 @@ export const Normalverteilung: React.FC = () => {
       <div className="explanation">
         <h2>Erläuterung</h2>
         <p>
-          Die <strong>Normalverteilung</strong> <span className="formula">X ~ N(μ, σ²)</span> ist die wichtigste
+          Die <strong>Normalverteilung</strong> <M>{'X \\sim N(\\mu, \\sigma^2)'}</M> ist die wichtigste
           stetige Wahrscheinlichkeitsverteilung. Ihre Dichtefunktion ist die bekannte <em>Glockenkurve</em>:
         </p>
         <p>
-          <span className="formula">f(x) = 1/(σ√(2π)) · e^(−(x−μ)²/(2σ²))</span>
+          <M>{'f(x) = \\frac{1}{\\sigma\\sqrt{2\\pi}} \\cdot e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}'}</M>
         </p>
         <p>
-          Der <strong>z-Wert</strong> (Standardisierung) ist <span className="formula">z = (x − μ) / σ</span>.
-          Die Verteilungsfunktion <span className="formula">Φ(z) = P(X ≤ x)</span> gibt die Fläche unter der Kurve
+          Der <strong>z-Wert</strong> (Standardisierung) ist <M>{'z = \\frac{x - \\mu}{\\sigma}'}</M>.
+          Die Verteilungsfunktion <M>{'\\Phi(z) = P(X \\leq x)'}</M> gibt die Fläche unter der Kurve
           links vom markierten Wert an.
         </p>
         <p>
