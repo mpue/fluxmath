@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawPoint, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { LinearExercises } from './LinearExercises';
 
 export const LineareFunktionen: React.FC = () => {
   const [sliderM, setSliderM] = useState(10);
@@ -201,6 +202,8 @@ export const LineareFunktionen: React.FC = () => {
           Bei einer horizontalen Änderung von 1 ändert sich y um genau m.
         </p>
       </div>
+
+      <LinearExercises />
     </>
   );
 };

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { PolynomialExercises } from './PolynomialExercises';
 
 export const GanzrationaleFunktionen: React.FC = () => {
   const [degree, setDegree] = useState(3);
@@ -181,6 +182,8 @@ export const GanzrationaleFunktionen: React.FC = () => {
           Spezialfälle: Grad 1 = lineare Funktion, Grad 2 = quadratische Funktion (Parabel).
         </p>
       </div>
+
+      <PolynomialExercises />
     </>
   );
 };

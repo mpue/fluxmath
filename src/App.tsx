@@ -19,6 +19,7 @@ import './topics/Vektoren';
 import './topics/Binomialverteilung';
 import './topics/Normalverteilung';
 import './topics/FourierAnalyse';
+import './topics/KomplexeZahlen';
 
 /** Plays slide_in / slide_out on route changes, click SFX on button taps */
 const SfxTriggers: React.FC = () => {

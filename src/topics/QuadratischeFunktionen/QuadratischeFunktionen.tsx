@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
 import { drawPoint, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
+import { QuadraticExercises } from './QuadraticExercises';
 
 export const QuadratischeFunktionen: React.FC = () => {
   const [sliderA, setSliderA] = useState(10);
@@ -285,6 +286,8 @@ export const QuadratischeFunktionen: React.FC = () => {
                               <M>{'x = -\\frac{b}{2a}'}</M>. Jede Parabel ist achsensymmetrisch zu dieser Geraden.
         </p>
       </div>
+
+      <QuadraticExercises />
     </>
   );
 };

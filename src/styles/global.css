@@ -407,6 +407,165 @@ input[type="range"]::-moz-range-thumb {
 .explanation .formula .katex .mfrac .frac-line { border-bottom-color: var(--cyan); }
 .info-card .formula .katex { font-size: 0.95em; }
 
+/* ── Exercises ── */
+.exercises-section {
+  background: rgba(0,212,255,.02);
+  border: 1px solid rgba(0,212,255,.1);
+  border-radius: 3px;
+  padding: 28px 32px;
+  margin-top: 1.5rem;
+  position: relative;
+  animation: fadeSlideUp .55s cubic-bezier(.22,1,.36,1) .4s both;
+}
+.exercises-section::before {
+  content: '';
+  position: absolute; top: 0; left: 0; width: 2px; height: 100%;
+  background: var(--amber); box-shadow: 0 0 12px var(--amber);
+}
+.exercises-section h2 {
+  font-family: 'Orbitron', monospace; font-weight: 700;
+  font-size: 14px; letter-spacing: .1em;
+  color: var(--amber); margin-bottom: 16px;
+  text-shadow: 0 0 16px rgba(255,170,0,.3);
+}
+
+.exercise-score {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 18px;
+  font-family: 'Share Tech Mono', monospace;
+}
+.score-label {
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted);
+}
+.score-value {
+  font-size: 18px; color: var(--cyan); font-family: 'Orbitron', monospace;
+  text-shadow: 0 0 10px rgba(0,212,255,.3);
+}
+.score-pct {
+  font-size: 11px; color: var(--lime);
+  text-shadow: 0 0 8px rgba(0,255,136,.3);
+}
+
+.exercise-card {
+  background: rgba(0,212,255,.03);
+  border: 1px solid rgba(0,212,255,.08);
+  border-radius: 3px;
+  padding: 20px 24px;
+}
+
+.exercise-question {
+  font-size: 14px; color: var(--text); line-height: 1.8;
+  margin-bottom: 16px;
+}
+.exercise-question .formula { color: var(--cyan); }
+.exercise-question .formula .katex { font-size: 1.05em; color: var(--cyan); }
+
+.exercise-input-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.exercise-unit {
+  font-family: 'Orbitron', monospace; font-size: 13px;
+  color: var(--cyan); white-space: nowrap;
+}
+.exercise-input {
+  flex: 1;
+  background: rgba(0,212,255,.04);
+  border: 1px solid rgba(0,212,255,.15);
+  border-radius: 3px;
+  padding: 10px 14px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color .25s, box-shadow .25s;
+}
+.exercise-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0,212,255,.15);
+}
+.exercise-input.correct {
+  border-color: var(--lime);
+  box-shadow: 0 0 12px rgba(0,255,136,.2);
+}
+.exercise-input.wrong {
+  border-color: var(--red);
+  box-shadow: 0 0 12px rgba(255,34,68,.2);
+}
+
+.exercise-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; letter-spacing: .06em;
+  padding: 10px 20px;
+  border: 1px solid rgba(0,212,255,.2);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.exercise-btn.check {
+  background: rgba(0,212,255,.1);
+  color: var(--cyan);
+}
+.exercise-btn.check:hover {
+  background: rgba(0,212,255,.2);
+  box-shadow: 0 0 14px rgba(0,212,255,.2);
+}
+.exercise-btn.next {
+  background: rgba(255,170,0,.1);
+  color: var(--amber);
+  border-color: rgba(255,170,0,.2);
+}
+.exercise-btn.next:hover {
+  background: rgba(255,170,0,.2);
+  box-shadow: 0 0 14px rgba(255,170,0,.2);
+}
+
+.exercise-feedback {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  animation: popIn .3s cubic-bezier(.22,1,.36,1) both;
+}
+.exercise-feedback.correct {
+  background: rgba(0,255,136,.06);
+  border: 1px solid rgba(0,255,136,.15);
+  color: var(--lime);
+  text-shadow: 0 0 8px rgba(0,255,136,.3);
+}
+.exercise-feedback.wrong {
+  background: rgba(255,34,68,.06);
+  border: 1px solid rgba(255,34,68,.15);
+  color: var(--red);
+  text-shadow: 0 0 8px rgba(255,34,68,.3);
+}
+.exercise-feedback.wrong strong {
+  color: var(--text);
+}
+
+.exercise-hint-toggle {
+  background: none; border: none;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; color: var(--muted);
+  cursor: pointer; padding: 4px 0;
+  transition: color .2s;
+}
+.exercise-hint-toggle:hover { color: var(--amber); }
+
+.exercise-hint {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; color: var(--muted);
+  background: rgba(255,170,0,.03);
+  border: 1px solid rgba(255,170,0,.08);
+  border-radius: 3px;
+  padding: 10px 14px;
+  margin-top: 8px;
+  animation: fadeSlideUp .3s cubic-bezier(.22,1,.36,1) both;
+}
+
 /* Topic navigation */
 .topic-nav {
   display: flex;
