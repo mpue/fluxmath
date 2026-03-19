@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { getTopics } from '../topics/TopicRegistry';
+import { FunFacts } from '../components/FunFacts';
 
 export const Home: React.FC = () => {
   const topics = getTopics();
@@ -10,6 +11,8 @@ export const Home: React.FC = () => {
       <div className="header-eyebrow">FluxMath <span>// Übersicht</span></div>
       <h1>Flux<em>Math</em></h1>
       <p className="subtitle">Interaktive Mathematik — wähle ein Thema</p>
+
+      <FunFacts />
 
       <div className="home-grid">
         {topics.map(topic => (

@@ -147,6 +147,33 @@ h1 em {
   animation: fadeSlideUp .6s cubic-bezier(.22,1,.36,1) .12s both;
 }
 
+/* Fun Facts Ticker */
+.funfact-bar {
+  text-align: center;
+  margin-bottom: 2rem;
+  min-height: 2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeSlideUp .6s cubic-bezier(.22,1,.36,1) .18s both;
+}
+.funfact-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  letter-spacing: .04em;
+  color: var(--accent);
+  text-shadow: 0 0 8px rgba(0,212,255,.3);
+  transition: opacity .5s ease, transform .5s ease;
+}
+.funfact-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.funfact-hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
 /* Canvas area */
 .canvas-wrap {
   position: relative;
