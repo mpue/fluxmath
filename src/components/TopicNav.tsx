@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { getTopics } from '../topics/TopicRegistry';
 
@@ -16,6 +16,8 @@ export const TopicNav: React.FC = () => {
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
+  const close = useCallback(() => setOpen(false), []);
+
   return (
     <>
       <button
@@ -26,10 +28,10 @@ export const TopicNav: React.FC = () => {
         <span /><span /><span />
       </button>
 
-      {open && <div className="nav-overlay" onClick={() => setOpen(false)} />}
+      {open && <div className="nav-overlay" onClick={close} />}
 
       <nav className={`topic-nav${open ? ' show' : ''}`}>
-        <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
+        <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''} onClick={close}>
           Home
         </NavLink>
         {topics.map(topic => (
@@ -37,6 +39,7 @@ export const TopicNav: React.FC = () => {
             key={topic.id}
             to={`/topic/${topic.id}`}
             className={({ isActive }) => isActive ? 'active' : ''}
+            onClick={close}
           >
             {topic.icon} {topic.title} {topic.titleAccent}
           </NavLink>

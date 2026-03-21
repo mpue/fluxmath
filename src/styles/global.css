@@ -898,6 +898,7 @@ button:active, [role="button"]:active {
     z-index: 200;
     flex-direction: column;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding-top: 64px;
     margin-bottom: 0;
     border-radius: 0;
@@ -905,11 +906,14 @@ button:active, [role="button"]:active {
     border-right: 1px solid rgba(0,212,255,.12);
     background: var(--bg);
     transform: translateX(-100%);
-    transition: transform .3s cubic-bezier(.22,1,.36,1);
+    visibility: hidden;
+    transition: transform .3s cubic-bezier(.22,1,.36,1), visibility 0s .3s;
     gap: 0;
   }
   .topic-nav.show {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform .3s cubic-bezier(.22,1,.36,1), visibility 0s;
   }
   .topic-nav a {
     justify-content: flex-start;
@@ -939,9 +943,7 @@ button:active, [role="button"]:active {
     padding: 10px 12px; gap: 10px;
   }
   #sfxp {
-    left: 8px; right: 8px; bottom: 70px;
-    min-width: 0; width: auto;
-    padding: 10px 12px;
+    display: none;
   }
 
   .hud-status { display: none; }
