@@ -6,7 +6,7 @@ registerTopic({
   title: 'Matrizen',
   titleAccent: 'rechnung',
   subtitle: 'Determinante, Multiplikation & Transponierte',
-  icon: '\u229E',
+  icon: '[M]',
   description: '2×2-Matrizen als lineare Abbildungen — Determinante, Addition, Multiplikation und Transponierte interaktiv erkunden.',
   component: Matrizen,
 });

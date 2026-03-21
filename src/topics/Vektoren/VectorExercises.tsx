@@ -26,7 +26,7 @@ function generateTask(): Task {
         question: <>Berechne den Betrag von <M>{`\\vec{a} = \\binom{${x}}{${y}}`}</M> (auf 2 Dezimalstellen).</>,
         answer: len,
         tolerance: 0.05,
-        hint: `|a⃗| = √(${x}² + ${y}²) = √${x * x + y * y} ≈ ${len}`,
+        hint: `|a\u2192| = \u221A(${x}\u00B2 + ${y}\u00B2) = \u221A${x * x + y * y} \u2248 ${len}`,
       };
     }
     case 1: {
@@ -38,7 +38,7 @@ function generateTask(): Task {
         question: <>Berechne das Skalarprodukt von <M>{`\\vec{a} = \\binom{${ax}}{${ay}}`}</M> und <M>{`\\vec{b} = \\binom{${bx}}{${by}}`}</M>.</>,
         answer: dot,
         tolerance: 0.01,
-        hint: `a⃗·b⃗ = ${ax}·${bx} + ${ay}·${by} = ${ax * bx} + ${ay * by} = ${dot}`,
+        hint: `a\u2192\u00B7b\u2192 = ${ax}\u00B7${bx} + ${ay}\u00B7${by} = ${ax * bx} + ${ay * by} = ${dot}`,
       };
     }
     case 2: {
@@ -74,7 +74,7 @@ function generateTask(): Task {
         question: <>Stehen <M>{`\\vec{a} = \\binom{${ax}}{${ay}}`}</M> und <M>{`\\vec{b} = \\binom{${bx}}{${by}}`}</M> senkrecht? (1 = ja, 0 = nein)</>,
         answer: dot === 0 ? 1 : 0,
         tolerance: 0.01,
-        hint: `a⃗·b⃗ = ${dot}. ${dot === 0 ? 'Skalarprodukt = 0 → senkrecht!' : 'Skalarprodukt ≠ 0 → nicht senkrecht'}`,
+        hint: `a\u2192\u00B7b\u2192 = ${dot}. ${dot === 0 ? 'Skalarprodukt = 0 \u2192 senkrecht!' : 'Skalarprodukt \u2260 0 \u2192 nicht senkrecht'}`,
       };
     }
     case 4: {
@@ -102,7 +102,7 @@ function generateTask(): Task {
         question: <>Berechne den Winkel zwischen <M>{`\\vec{a} = \\binom{${ax}}{${ay}}`}</M> und <M>{`\\vec{b} = \\binom{${bx}}{${by}}`}</M> in Grad (1 Dezimalstelle).</>,
         answer: angle,
         tolerance: 0.5,
-        hint: `cos(φ) = (a⃗·b⃗)/(|a⃗|·|b⃗|) = ${dot}/(${la.toFixed(2)}·${lb.toFixed(2)}) → φ ≈ ${angle}°`,
+        hint: `cos(\u03C6) = (a\u2192\u00B7b\u2192)/(|a\u2192|\u00B7|b\u2192|) = ${dot}/(${la.toFixed(2)}\u00B7${lb.toFixed(2)}) \u2192 \u03C6 \u2248 ${angle}\u00B0`,
         unit: 'φ',
       };
     }

@@ -58,12 +58,12 @@ export const Vektoren: React.FC = () => {
     ctx.font = '13px "Orbitron", monospace';
     ctx.fillStyle = C.line;
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('\u20D7a', toX(va.x) + 8, toY(va.y) - 8);
+    ctx.fillText('a\u2192', toX(va.x) + 8, toY(va.y) - 8);
 
     // Vector b (lime)
     drawArrow(ctx, ox, oy, toX(vb.x), toY(vb.y), C.yint, C.yintGlow);
     ctx.fillStyle = C.yint;
-    ctx.fillText('\u20D7b', toX(vb.x) + 8, toY(vb.y) - 8);
+    ctx.fillText('b\u2192', toX(vb.x) + 8, toY(vb.y) - 8);
 
     // Result vector
     if (op === 'add') {
@@ -81,7 +81,7 @@ export const Vektoren: React.FC = () => {
 
       drawArrow(ctx, ox, oy, toX(rx), toY(ry), C.orange, C.orangeGlow, 3);
       ctx.fillStyle = C.orangeLabel;
-      ctx.fillText('\u20D7a+\u20D7b', toX(rx) + 8, toY(ry) - 8);
+      ctx.fillText('a\u2192+b\u2192', toX(rx) + 8, toY(ry) - 8);
     } else if (op === 'sub') {
       const rx = va.x - vb.x, ry = va.y - vb.y;
       // Show b shifted to tip of a
@@ -96,12 +96,12 @@ export const Vektoren: React.FC = () => {
 
       drawArrow(ctx, ox, oy, toX(rx), toY(ry), C.zero, C.zeroGlow, 3);
       ctx.fillStyle = C.zeroLabel;
-      ctx.fillText('\u20D7a\u2212\u20D7b', toX(rx) + 8, toY(ry) - 8);
+      ctx.fillText('a\u2192\u2212b\u2192', toX(rx) + 8, toY(ry) - 8);
     } else if (op === 'scalar') {
       const rx = s * va.x, ry = s * va.y;
       drawArrow(ctx, ox, oy, toX(rx), toY(ry), C.orange, C.orangeGlow, 3);
       ctx.fillStyle = C.orangeLabel;
-      ctx.fillText(fmt(s) + '·\u20D7a', toX(rx) + 8, toY(ry) - 8);
+      ctx.fillText(fmt(s) + '·a→', toX(rx) + 8, toY(ry) - 8);
     } else {
       // Dot product: project b onto a
       if (lenA > 0.001) {
@@ -168,8 +168,8 @@ export const Vektoren: React.FC = () => {
           <div className="ctrl-header"><span className="ctrl-label">Operation</span></div>
           <div style={{ display: 'flex', gap: '1px' }}>
             {([
-              ['add', 'Addition \u20D7a+\u20D7b'],
-              ['sub', 'Subtraktion \u20D7a\u2212\u20D7b'],
+              ['add', 'Addition a\u2192+b\u2192'],
+              ['sub', 'Subtraktion a\u2192\u2212b\u2192'],
               ['scalar', 'Skalarmultiplikation'],
               ['dot', 'Skalarprodukt'],
             ] as const).map(([id, label]) => (
@@ -232,24 +232,24 @@ export const Vektoren: React.FC = () => {
       <div className="info-grid">
         <div className="info-card eq">
           <div className="label">Beträge</div>
-          <div className="value">|\u20D7a| = {fmt(lenA, 2)} &nbsp; |\u20D7b| = {fmt(lenB, 2)}</div>
+          <div className="value">|a\u2192| = {fmt(lenA, 2)} &nbsp; |b\u2192| = {fmt(lenB, 2)}</div>
           <div className="detail">√(x² + y²)</div>
         </div>
         <div className="info-card slope">
           <div className="label">Skalarprodukt</div>
-          <div className="value">\u20D7a · \u20D7b = {fmt(dot, 2)}</div>
+          <div className="value">a→ · b→ = {fmt(dot, 2)}</div>
           <div className="detail">{Math.abs(dot) < 0.1 ? 'orthogonal! ⊥' : dot > 0 ? 'spitzer Winkel' : 'stumpfer Winkel'}</div>
         </div>
         <div className="info-card zero">
           <div className="label">Winkel</div>
-          <div className="value">\u2220 = {fmt(angle, 1)}°</div>
-          <div className="detail">cos⁻¹(\u20D7a·\u20D7b / |\u20D7a|·|\u20D7b|)</div>
+          <div className="value">&#x03C6; = {fmt(angle, 1)}&deg;</div>
+          <div className="detail">cos⁻¹(a→·b→ / |a→|·|b→|)</div>
         </div>
       </div>
 
       <div className="legend">
-        <div className="legend-item"><div className="legend-dot glow-cyan" />Vektor \u20D7a</div>
-        <div className="legend-item"><div className="legend-dot glow-lime" />Vektor \u20D7b</div>
+        <div className="legend-item"><div className="legend-dot glow-cyan" />Vektor a\u2192</div>
+        <div className="legend-item"><div className="legend-dot glow-lime" />Vektor b\u2192</div>
         <div className="legend-item"><div className="legend-dot glow-amber" />Ergebnis</div>
       </div>
 
@@ -261,7 +261,7 @@ export const Vektoren: React.FC = () => {
         </p>
         <p>
           <strong>Addition</strong>: <M>{String.raw`\vec{a} + \vec{b} = (a_x + b_x \mid a_y + b_y)`}</M> — Parallelogrammregel.
-          <strong> Subtraktion</strong>: <M>{String.raw`\vec{a} - \vec{b}`}</M> zeigt von der Spitze von \u20D7b zur Spitze von \u20D7a.
+          <strong> Subtraktion</strong>: <M>{String.raw`\vec{a} - \vec{b}`}</M> zeigt von der Spitze von b\u2192 zur Spitze von a\u2192.
         </p>
         <p>
           Das <strong>Skalarprodukt</strong> <M>{String.raw`\vec{a} \cdot \vec{b} = a_x b_x + a_y b_y = |\vec{a}| \cdot |\vec{b}| \cdot \cos(\varphi)`}</M>{' '}

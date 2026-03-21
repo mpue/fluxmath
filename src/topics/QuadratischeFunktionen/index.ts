@@ -6,7 +6,7 @@ registerTopic({
   title: 'Quadratische',
   titleAccent: 'Funktionen',
   subtitle: 'Parabeln, Scheitel & Nullstellen',
-  icon: '\u23E0',
+  icon: 'x\u00B2',
   description: 'Interaktive Visualisierung quadratischer Funktionen f(x) = ax² + bx + c mit Scheitelform, Diskriminante und Nullstellen.',
   component: QuadratischeFunktionen,
 });

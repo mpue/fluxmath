@@ -111,7 +111,7 @@ export const MusicPlayer: React.FC = () => {
             className={`ply-btn${state.playing ? ' on' : ''}`}
             onClick={() => audioEngine.togglePlay()}
           >
-            {state.playing ? '\u275A\u275A' : '\u25B6'}
+            {state.playing ? '||' : '\u25B6'}
           </button>
           <div className="ply-vol">
             <span style={{ fontSize: '9px', color: 'var(--muted)' }}>▪</span>

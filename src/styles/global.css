@@ -888,7 +888,7 @@ button:active, [role="button"]:active {
   .hamburger { display: flex; }
 
   /* Push content below the fixed hamburger button */
-  .app { padding-top: 54px; max-width: 100%; overflow-x: hidden; }
+  .app { padding-top: 54px; max-width: 100%; }
 
   .nav-overlay {
     display: block;
@@ -933,18 +933,23 @@ button:active, [role="button"]:active {
     border-bottom: 1px solid rgba(0,212,255,.06);
   }
 
-  .controls { grid-template-columns: 1fr; }
-  .info-grid { grid-template-columns: 1fr; }
+  .controls { grid-template-columns: 1fr !important; }
+  .info-grid { grid-template-columns: 1fr !important; }
   .legend { flex-direction: column; }
   .legend-item { border-right: none; border-bottom: 1px solid rgba(0,212,255,.07); }
   .legend-item:last-child { border-bottom: none; }
 
-  body { padding: 1.2rem 0.7rem; }
+  body { padding: 1.2rem 0.7rem; overflow-x: hidden; }
   h1 { font-size: 24px; }
 
-  .exercises-section { padding: 20px 16px; }
-  .explanation { padding: 20px 16px; }
+  .exercises-section { padding: 20px 16px; overflow-x: auto; }
+  .explanation { padding: 20px 16px; overflow-x: auto; }
   .exercise-card { padding: 16px 14px; }
+
+  .canvas-wrap { margin-left: 0; margin-right: 0; }
+
+  /* Prevent any child from exceeding viewport */
+  .app > * { max-width: 100%; }
 
   /* ── Mini player toggle button ── */
   .player-mini {
