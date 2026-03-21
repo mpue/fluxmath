@@ -1,24 +1,47 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { getTopics } from '../topics/TopicRegistry';
 
 export const TopicNav: React.FC = () => {
   const topics = getTopics();
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+
+  // Close menu on route change
+  useEffect(() => { setOpen(false); }, [location.pathname]);
+
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
 
   return (
-    <nav className="topic-nav">
-      <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
-        Home
-      </NavLink>
-      {topics.map(topic => (
-        <NavLink
-          key={topic.id}
-          to={`/topic/${topic.id}`}
-          className={({ isActive }) => isActive ? 'active' : ''}
-        >
-          {topic.icon} {topic.title} {topic.titleAccent}
+    <>
+      <button
+        className={`hamburger${open ? ' open' : ''}`}
+        onClick={() => setOpen(o => !o)}
+        aria-label="Menü"
+      >
+        <span /><span /><span />
+      </button>
+
+      {open && <div className="nav-overlay" onClick={() => setOpen(false)} />}
+
+      <nav className={`topic-nav${open ? ' show' : ''}`}>
+        <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
+          Home
         </NavLink>
-      ))}
-    </nav>
+        {topics.map(topic => (
+          <NavLink
+            key={topic.id}
+            to={`/topic/${topic.id}`}
+            className={({ isActive }) => isActive ? 'active' : ''}
+          >
+            {topic.icon} {topic.title} {topic.titleAccent}
+          </NavLink>
+        ))}
+      </nav>
+    </>
   );
 };
