@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { CoordinateSystem, Viewport, DragPoint } from '../../shared/CoordinateSystem';
 import { C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
 import { ComplexExercises } from './ComplexExercises';
@@ -15,6 +15,17 @@ export const KomplexeZahlen: React.FC = () => {
 
   const a = { re: ar / 10, im: ai / 10 };
   const b = { re: br / 10, im: bi / 10 };
+
+  const dragPts: DragPoint[] = [
+    { id: 'z1', x: a.re, y: a.im, color: C.line, label: 'z\u2081' },
+    { id: 'z2', x: b.re, y: b.im, color: C.yint, label: 'z\u2082' },
+  ];
+
+  const handleDrag = useCallback((id: string, x: number, y: number) => {
+    const cl = (v: number) => Math.max(-50, Math.min(50, Math.round(v * 10)));
+    if (id === 'z1') { setAr(cl(x)); setAi(cl(y)); }
+    if (id === 'z2') { setBr(cl(x)); setBi(cl(y)); }
+  }, []);
 
   // Operations
   const sum = { re: a.re + b.re, im: a.im + b.im };
@@ -213,7 +224,7 @@ export const KomplexeZahlen: React.FC = () => {
       <h1>Komplexe <em>Zahlen</em></h1>
       <p className="subtitle">Gaußsche Zahlenebene, Operationen &amp; Polarform</p>
 
-      <CoordinateSystem draw={draw} />
+      <CoordinateSystem draw={draw} dragPoints={dragPts} onDragPoint={handleDrag} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">

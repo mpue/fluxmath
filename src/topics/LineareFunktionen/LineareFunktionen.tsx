@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { CoordinateSystem, Viewport, DragPoint } from '../../shared/CoordinateSystem';
 import { drawPoint, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
 import { LinearExercises } from './LinearExercises';
@@ -10,6 +10,16 @@ export const LineareFunktionen: React.FC = () => {
 
   const m = sliderM / 10;
   const b = sliderB / 10;
+
+  const dragPts: DragPoint[] = [
+    { id: 'yint', x: 0, y: b, color: C.yint },
+    { id: 'slope', x: 2, y: m * 2 + b, color: C.line },
+  ];
+
+  const handleDrag = useCallback((id: string, _x: number, y: number) => {
+    if (id === 'yint') setSliderB(Math.max(-60, Math.min(60, Math.round(y * 10))));
+    if (id === 'slope') setSliderM(Math.max(-40, Math.min(40, Math.round(((y - b) / 2) * 10))));
+  }, [b]);
 
   const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
     const { toX, toY, w, h } = vp;
@@ -128,7 +138,7 @@ export const LineareFunktionen: React.FC = () => {
       <h1>Lineare <em>Funktionen</em></h1>
       <p className="subtitle">Geraden, Steigung &amp; Nullstellen im 4-Quadranten-Koordinatensystem</p>
 
-      <CoordinateSystem draw={draw} showQuadrants />
+      <CoordinateSystem draw={draw} showQuadrants dragPoints={dragPts} onDragPoint={handleDrag} />
 
       <div className="controls">
         <div className="ctrl">

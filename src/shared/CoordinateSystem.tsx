@@ -27,11 +27,22 @@ export type DrawFn = (
   mouseY: number,
 ) => string;
 
+export interface DragPoint {
+  id: string;
+  x: number;
+  y: number;
+  color?: string;
+  label?: string;
+  radius?: number;
+}
+
 interface Props {
   draw: DrawFn;
   heightRatio?: number;
   maxHeight?: number;
   showQuadrants?: boolean;
+  dragPoints?: DragPoint[];
+  onDragPoint?: (id: string, x: number, y: number) => void;
 }
 
 /* ───────────────────────── Helpers ─────────────────────── */
@@ -66,6 +77,8 @@ export const CoordinateSystem: React.FC<Props> = ({
   heightRatio = 0.68,
   maxHeight = 500,
   showQuadrants = false,
+  dragPoints,
+  onDragPoint,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: -1, y: -1 });
@@ -80,6 +93,12 @@ export const CoordinateSystem: React.FC<Props> = ({
   const dragRef = useRef({
     active: false, startX: 0, startY: 0, panX: 0, panY: 0,
   });
+  const pointDragRef = useRef({ active: false, id: '' });
+  const hoverPointRef = useRef('');
+  const dragPointsRef = useRef(dragPoints);
+  dragPointsRef.current = dragPoints;
+  const onDragPointRef = useRef(onDragPoint);
+  onDragPointRef.current = onDragPoint;
 
   /* ── Viewport factory ─────────────────────────────────── */
 
@@ -266,13 +285,47 @@ export const CoordinateSystem: React.FC<Props> = ({
     /* ── Crosshair ────────────────────────────────────── */
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
-    if (mx >= 0 && my >= 0 && !dragRef.current.active) {
+    if (mx >= 0 && my >= 0 && !dragRef.current.active && !pointDragRef.current.active) {
       ctx.setLineDash([3, 3]);
       ctx.strokeStyle = C.crosshair;
       ctx.lineWidth = 0.5;
       ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, h); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, my); ctx.lineTo(w, my); ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    /* ── Drag points ──────────────────────────────────── */
+    const dps = dragPointsRef.current;
+    if (dps && dps.length > 0) {
+      const activeId = pointDragRef.current.active ? pointDragRef.current.id : '';
+      const hoverId = hoverPointRef.current;
+      for (const pt of dps) {
+        const sx = vp.toX(pt.x);
+        const sy = vp.toY(pt.y);
+        if (sx < -20 || sx > w + 20 || sy < -20 || sy > h + 20) continue;
+        const color = pt.color || C.orange;
+        const isActive = pt.id === activeId || pt.id === hoverId;
+        const r = isActive ? 8 : 6;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = isActive ? 16 : 8;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        if (pt.label) {
+          ctx.fillStyle = color;
+          ctx.font = '11px "Share Tech Mono", monospace';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(pt.label, sx + r + 4, sy - r);
+        }
+      }
     }
 
     /* ── Mouse info ───────────────────────────────────── */
@@ -391,6 +444,27 @@ export const CoordinateSystem: React.FC<Props> = ({
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (e.button !== 0) return;
       const c = toCanvasCoords(e);
+
+      // Check drag points first
+      const dps = dragPointsRef.current;
+      if (dps && onDragPointRef.current) {
+        const canvas = canvasRef.current!;
+        const w = canvas.parentElement!.clientWidth;
+        const h = Math.min(w * heightRatio, maxHeight);
+        const vp = makeViewport(w, h);
+        for (const pt of dps) {
+          const dx = c.x - vp.toX(pt.x);
+          const dy = c.y - vp.toY(pt.y);
+          const hitR = pt.radius || 14;
+          if (dx * dx + dy * dy <= hitR * hitR) {
+            pointDragRef.current = { active: true, id: pt.id };
+            if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
+            e.preventDefault();
+            return;
+          }
+        }
+      }
+
       dragRef.current = {
         active: true,
         startX: c.x,
@@ -400,7 +474,7 @@ export const CoordinateSystem: React.FC<Props> = ({
       };
       if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
       e.preventDefault();
-    }, [toCanvasCoords],
+    }, [toCanvasCoords, heightRatio, maxHeight, makeViewport],
   );
 
   const handleMouseMove = useCallback(
@@ -408,6 +482,18 @@ export const CoordinateSystem: React.FC<Props> = ({
       const coords = toCanvasCoords(e);
       mouseRef.current = coords;
 
+      // Point dragging
+      if (pointDragRef.current.active && onDragPointRef.current) {
+        const canvas = canvasRef.current!;
+        const w = canvas.parentElement!.clientWidth;
+        const h = Math.min(w * heightRatio, maxHeight);
+        const vp = makeViewport(w, h);
+        onDragPointRef.current(pointDragRef.current.id, vp.toMathX(coords.x), vp.toMathY(coords.y));
+        scheduleRender();
+        return;
+      }
+
+      // Pan dragging
       const d = dragRef.current;
       if (d.active) {
         const canvas = canvasRef.current!;
@@ -420,17 +506,39 @@ export const CoordinateSystem: React.FC<Props> = ({
           y: d.panY + (coords.y - d.startY) / unitPx,
         };
       }
+
+      // Hover detection for drag points
+      const dps = dragPointsRef.current;
+      if (dps && !dragRef.current.active) {
+        const canvas = canvasRef.current!;
+        const w = canvas.parentElement!.clientWidth;
+        const h = Math.min(w * heightRatio, maxHeight);
+        const vp = makeViewport(w, h);
+        let found = '';
+        for (const pt of dps) {
+          const dx = coords.x - vp.toX(pt.x);
+          const dy = coords.y - vp.toY(pt.y);
+          const hitR = pt.radius || 14;
+          if (dx * dx + dy * dy <= hitR * hitR) { found = pt.id; break; }
+        }
+        hoverPointRef.current = found;
+        if (canvas) canvas.style.cursor = found ? 'pointer' : 'grab';
+      }
+
       scheduleRender();
-    }, [toCanvasCoords, scheduleRender, heightRatio, maxHeight],
+    }, [toCanvasCoords, scheduleRender, heightRatio, maxHeight, makeViewport],
   );
 
   const handleMouseUp = useCallback(() => {
+    pointDragRef.current = { active: false, id: '' };
     dragRef.current.active = false;
     if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
   }, []);
 
   const handleMouseLeave = useCallback(() => {
     mouseRef.current = { x: -1, y: -1 };
+    pointDragRef.current = { active: false, id: '' };
+    hoverPointRef.current = '';
     dragRef.current.active = false;
     if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
     scheduleRender();
@@ -447,6 +555,88 @@ export const CoordinateSystem: React.FC<Props> = ({
     zoomRef.current = 1;
     scheduleRender();
   }, [scheduleRender]);
+
+  /* ── Touch events (native, non-passive) ─────────────── */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const getCoords = (t: Touch) => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      return {
+        x: (t.clientX - rect.left) * canvas.width / dpr / rect.width,
+        y: (t.clientY - rect.top) * canvas.height / dpr / rect.height,
+      };
+    };
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const c = getCoords(e.touches[0]);
+      mouseRef.current = c;
+      const dps = dragPointsRef.current;
+      if (dps && onDragPointRef.current) {
+        const w = canvas.parentElement!.clientWidth;
+        const h = Math.min(w * heightRatio, maxHeight);
+        const vp = makeViewport(w, h);
+        for (const pt of dps) {
+          const dx = c.x - vp.toX(pt.x);
+          const dy = c.y - vp.toY(pt.y);
+          const hitR = (pt.radius || 14) * 1.5;
+          if (dx * dx + dy * dy <= hitR * hitR) {
+            e.preventDefault();
+            pointDragRef.current = { active: true, id: pt.id };
+            return;
+          }
+        }
+      }
+      dragRef.current = {
+        active: true, startX: c.x, startY: c.y,
+        panX: panRef.current.x, panY: panRef.current.y,
+      };
+    };
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const c = getCoords(e.touches[0]);
+      mouseRef.current = c;
+      if (pointDragRef.current.active && onDragPointRef.current) {
+        e.preventDefault();
+        const w = canvas.parentElement!.clientWidth;
+        const h = Math.min(w * heightRatio, maxHeight);
+        const vp = makeViewport(w, h);
+        onDragPointRef.current(pointDragRef.current.id, vp.toMathX(c.x), vp.toMathY(c.y));
+        scheduleRender();
+        return;
+      }
+      const d = dragRef.current;
+      if (d.active) {
+        e.preventDefault();
+        const w = canvas.parentElement!.clientWidth;
+        const h = Math.min(w * heightRatio, maxHeight);
+        const baseUnitPx = Math.min((w - 80) / 14, (h - 60) / 10);
+        const unitPx = baseUnitPx * zoomRef.current;
+        panRef.current = {
+          x: d.panX - (c.x - d.startX) / unitPx,
+          y: d.panY + (c.y - d.startY) / unitPx,
+        };
+        scheduleRender();
+      }
+    };
+    const onEnd = () => {
+      pointDragRef.current = { active: false, id: '' };
+      dragRef.current.active = false;
+      mouseRef.current = { x: -1, y: -1 };
+      scheduleRender();
+    };
+    canvas.addEventListener('touchstart', onStart, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    canvas.addEventListener('touchend', onEnd);
+    canvas.addEventListener('touchcancel', onEnd);
+    return () => {
+      canvas.removeEventListener('touchstart', onStart);
+      canvas.removeEventListener('touchmove', onMove);
+      canvas.removeEventListener('touchend', onEnd);
+      canvas.removeEventListener('touchcancel', onEnd);
+    };
+  }, [heightRatio, maxHeight, makeViewport, scheduleRender]);
 
   /* ── JSX ────────────────────────────────────────────── */
 

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { CoordinateSystem, Viewport, DragPoint } from '../../shared/CoordinateSystem';
 import { drawCurve, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
 import { IntegralExercises } from './IntegralExercises';
@@ -38,6 +38,17 @@ export const Integralrechnung: React.FC = () => {
   const f = fnDefs[funcId];
 
   const integralValue = numericalIntegral(f, aVal, bVal);
+
+  const dragPts: DragPoint[] = [
+    { id: 'a', x: aVal, y: 0, color: C.zero, label: 'a' },
+    { id: 'b', x: bVal, y: 0, color: C.orange, label: 'b' },
+  ];
+
+  const handleDrag = useCallback((id: string, x: number) => {
+    const v = Math.max(-40, Math.min(40, Math.round(x * 10)));
+    if (id === 'a') setSliderA(v);
+    if (id === 'b') setSliderB(v);
+  }, []);
 
   const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
     const { toX, toY, w, h, unitPx, cx } = vp;
@@ -126,7 +137,7 @@ export const Integralrechnung: React.FC = () => {
       <h1>Integral<em>rechnung</em></h1>
       <p className="subtitle">Bestimmtes Integral, Flächenberechnung &amp; Stammfunktion</p>
 
-      <CoordinateSystem draw={draw} />
+      <CoordinateSystem draw={draw} dragPoints={dragPts} onDragPoint={handleDrag} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { CoordinateSystem, Viewport, DragPoint } from '../../shared/CoordinateSystem';
 import { C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
 import { VectorExercises } from './VectorExercises';
@@ -15,6 +15,17 @@ export const Vektoren: React.FC = () => {
   const va = { x: ax / 10, y: ay / 10 };
   const vb = { x: bx / 10, y: by / 10 };
   const s = scalar / 10;
+
+  const dragPts: DragPoint[] = [
+    { id: 'a', x: va.x, y: va.y, color: C.orange, label: '\u2192a' },
+    { id: 'b', x: vb.x, y: vb.y, color: C.yint, label: '\u2192b' },
+  ];
+
+  const handleDrag = useCallback((id: string, x: number, y: number) => {
+    const cl = (v: number) => Math.max(-50, Math.min(50, Math.round(v * 10)));
+    if (id === 'a') { setAx(cl(x)); setAy(cl(y)); }
+    if (id === 'b') { setBx(cl(x)); setBy(cl(y)); }
+  }, []);
 
   const lenA = Math.sqrt(va.x * va.x + va.y * va.y);
   const lenB = Math.sqrt(vb.x * vb.x + vb.y * vb.y);
@@ -161,7 +172,7 @@ export const Vektoren: React.FC = () => {
       <h1>Vektor<em>rechnung</em></h1>
       <p className="subtitle">Vektoren, Operationen, Skalarprodukt &amp; Winkel</p>
 
-      <CoordinateSystem draw={draw} />
+      <CoordinateSystem draw={draw} dragPoints={dragPts} onDragPoint={handleDrag} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">
