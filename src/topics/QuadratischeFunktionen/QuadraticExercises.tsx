@@ -213,7 +213,6 @@ export const QuadraticExercises: React.FC = () => {
             onChange={e => { setInput(e.target.value); if (state !== 'idle') setState('idle'); }}
             onKeyDown={handleKey}
             placeholder="Antwort eingeben…"
-            autoFocus
           />
           {state === 'idle' ? (
             <button className="exercise-btn check" onClick={check}>Prüfen</button>

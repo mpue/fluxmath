@@ -129,7 +129,7 @@ export const IntegralExercises: React.FC = () => {
           {task.unit && <span className="exercise-unit">{task.unit} =</span>}
           <input className={`exercise-input ${state}`} type="text" inputMode="decimal" value={input}
             onChange={e => { setInput(e.target.value); if (state !== 'idle') setState('idle'); }}
-            onKeyDown={handleKey} placeholder="Antwort eingeben…" autoFocus />
+            onKeyDown={handleKey} placeholder="Antwort eingeben…" />
           {state === 'idle'
             ? <button className="exercise-btn check" onClick={check}>Prüfen</button>
             : <button className="exercise-btn next" onClick={nextTask}>Nächste →</button>}
