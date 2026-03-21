@@ -875,9 +875,20 @@ button:active, [role="button"]:active {
   display: none;
 }
 
+/* ── Mobile mini player toggle & close ── */
+.player-mini {
+  display: none;
+}
+.player-close {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .hamburger { display: flex; }
+
+  /* Push content below the fixed hamburger button */
+  .app { padding-top: 54px; max-width: 100%; overflow-x: hidden; }
 
   .nav-overlay {
     display: block;
@@ -931,17 +942,75 @@ button:active, [role="button"]:active {
   body { padding: 1.2rem 0.7rem; }
   h1 { font-size: 24px; }
 
-  .app { max-width: 100%; overflow-x: hidden; }
-
   .exercises-section { padding: 20px 16px; }
   .explanation { padding: 20px 16px; }
   .exercise-card { padding: 16px 14px; }
 
+  /* ── Mini player toggle button ── */
+  .player-mini {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    bottom: 14px;
+    right: 14px;
+    z-index: 150;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,212,255,.25);
+    background: rgba(0,5,7,.92);
+    backdrop-filter: blur(12px);
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 0 16px rgba(0,212,255,.12);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .player-mini:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 24px rgba(0,212,255,.25);
+  }
+  .player-mini.hidden {
+    display: none;
+  }
+
+  /* ── Player: collapsed by default on mobile ── */
   #player {
     left: 8px; right: 8px; bottom: 8px;
     min-width: 0; width: auto;
     padding: 10px 12px; gap: 10px;
+    transition: transform .3s cubic-bezier(.22,1,.36,1), opacity .3s;
   }
+  #player.mobile-collapsed {
+    transform: translateY(120%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Close button inside player on mobile */
+  .player-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: -12px;
+    right: -4px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,212,255,.2);
+    background: rgba(0,5,7,.95);
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 5;
+    transition: color .2s, border-color .2s;
+  }
+  .player-close:hover {
+    color: var(--cyan);
+    border-color: var(--cyan);
+  }
+
   #sfxp {
     display: none;
   }

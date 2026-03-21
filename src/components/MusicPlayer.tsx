@@ -11,6 +11,7 @@ function fmtTime(s: number): string {
 
 export const MusicPlayer: React.FC = () => {
   const [, setTick] = useState(0);
+  const [collapsed, setCollapsed] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const wfRef = useRef<number>(0);
   const wfTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -57,56 +58,74 @@ export const MusicPlayer: React.FC = () => {
   };
 
   return (
-    <div id="player">
-      <input
-        ref={fileRef}
-        type="file"
-        accept="audio/*"
-        style={{ display: 'none' }}
-        onChange={handleFile}
-      />
-      <button className="ply-upload" onClick={() => fileRef.current?.click()}>
-        ▲ Audio
+    <>
+      {/* Mini toggle button – visible only on mobile when collapsed */}
+      <button
+        className={`player-mini${collapsed ? '' : ' hidden'}`}
+        onClick={() => setCollapsed(false)}
+        aria-label="Musik-Player öffnen"
+      >
+        {state.playing ? '🔊' : '🔈'}
       </button>
-      <div className="ply-info">
-        <div className="ply-title">{state.title}</div>
-        <div className="ply-bar" onClick={handleBarClick}>
-          <div className="ply-fill" style={{ width: `${pct}%` }} />
-        </div>
-        <div className="ply-time">
-          <span>{fmtTime(state.currentTime)}</span>
-          <div className="wavefm">
-            {WAVE_HEIGHTS.map((h, i) => (
-              <div
-                key={i}
-                ref={el => { barsRef.current[i] = el; }}
-                className="wb"
-                style={{ height: `${h}px` }}
-              />
-            ))}
-          </div>
-          <span>{fmtTime(state.duration)}</span>
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+
+      <div id="player" className={collapsed ? 'mobile-collapsed' : ''}>
+        {/* Close button – visible only on mobile */}
         <button
-          className={`ply-btn${state.playing ? ' on' : ''}`}
-          onClick={() => audioEngine.togglePlay()}
-        >
-          {state.playing ? '⏸' : '▶'}
+          className="player-close"
+          onClick={() => setCollapsed(true)}
+          aria-label="Player minimieren"
+        >✕</button>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="audio/*"
+          style={{ display: 'none' }}
+          onChange={handleFile}
+        />
+        <button className="ply-upload" onClick={() => fileRef.current?.click()}>
+          ▲ Audio
         </button>
-        <div className="ply-vol">
-          <span style={{ fontSize: '9px', color: 'var(--muted)' }}>▪</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={state.volume}
-            onChange={e => audioEngine.setVolume(parseFloat(e.target.value))}
-          />
+        <div className="ply-info">
+          <div className="ply-title">{state.title}</div>
+          <div className="ply-bar" onClick={handleBarClick}>
+            <div className="ply-fill" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="ply-time">
+            <span>{fmtTime(state.currentTime)}</span>
+            <div className="wavefm">
+              {WAVE_HEIGHTS.map((h, i) => (
+                <div
+                  key={i}
+                  ref={el => { barsRef.current[i] = el; }}
+                  className="wb"
+                  style={{ height: `${h}px` }}
+                />
+              ))}
+            </div>
+            <span>{fmtTime(state.duration)}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+          <button
+            className={`ply-btn${state.playing ? ' on' : ''}`}
+            onClick={() => audioEngine.togglePlay()}
+          >
+            {state.playing ? '⏸' : '▶'}
+          </button>
+          <div className="ply-vol">
+            <span style={{ fontSize: '9px', color: 'var(--muted)' }}>▪</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={state.volume}
+              onChange={e => audioEngine.setVolume(parseFloat(e.target.value))}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
