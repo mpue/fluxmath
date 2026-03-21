@@ -65,7 +65,7 @@ export const MusicPlayer: React.FC = () => {
         onClick={() => setCollapsed(false)}
         aria-label="Musik-Player öffnen"
       >
-        {state.playing ? '🔊' : '🔈'}
+        {state.playing ? '\u25A0' : '\u266B'}
       </button>
 
       <div id="player" className={collapsed ? 'mobile-collapsed' : ''}>
@@ -111,7 +111,7 @@ export const MusicPlayer: React.FC = () => {
             className={`ply-btn${state.playing ? ' on' : ''}`}
             onClick={() => audioEngine.togglePlay()}
           >
-            {state.playing ? '⏸' : '▶'}
+            {state.playing ? '\u275A\u275A' : '\u25B6'}
           </button>
           <div className="ply-vol">
             <span style={{ fontSize: '9px', color: 'var(--muted)' }}>▪</span>

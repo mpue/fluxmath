@@ -6,7 +6,7 @@ registerTopic({
   title: 'Vektor',
   titleAccent: 'rechnung',
   subtitle: 'Vektoren, Skalarprodukt & Winkel',
-  icon: '\u20D7v',
+  icon: '\u2192',
   description: 'Vektoren addieren, subtrahieren, skalieren — Skalarprodukt, Projektion und Winkelberechnung inklusive.',
   component: Vektoren,
 });

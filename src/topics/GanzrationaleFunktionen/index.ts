@@ -6,7 +6,7 @@ registerTopic({
   title: 'Ganzrationale',
   titleAccent: 'Funktionen',
   subtitle: 'Polynome, Grad & Verhalten',
-  icon: '\u{1D465}\u207F',
+  icon: 'xⁿ',
   description: 'Polynome vom Grad 1–5 mit einstellbaren Koeffizienten, Nullstellensuche und Endverhalten.',
   component: GanzrationaleFunktionen,
 });

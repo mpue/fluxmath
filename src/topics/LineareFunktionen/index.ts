@@ -6,7 +6,7 @@ registerTopic({
   title: 'Lineare',
   titleAccent: 'Funktionen',
   subtitle: 'Geraden, Steigung & Nullstellen',
-  icon: '\u2215',
+  icon: '/',
   description: 'Interaktive Visualisierung linearer Funktionen f(x) = mx + b mit Steigungsdreieck, Nullstelle und y-Achsenabschnitt.',
   component: LineareFunktionen,
 });
