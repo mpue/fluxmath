@@ -29,6 +29,14 @@ import './topics/Wahrscheinlichkeit';
 import './topics/Logarithmusfunktionen';
 import './topics/Grenzwerte';
 import './topics/Kurvendiskussion';
+import './topics/Potenzreihen';
+import './topics/Differentialgleichungen';
+import './topics/PartielleAbleitungen';
+import './topics/Mehrfachintegrale';
+import './topics/LineareGleichungssysteme';
+import './topics/Determinanten';
+import './topics/Eigenwerte';
+import './topics/Vektorraeume';
 
 /** Plays slide_in / slide_out on route changes, click SFX on button taps */
 const SfxTriggers: React.FC = () => {

@@ -658,6 +658,14 @@ input[type="range"]::-moz-range-thumb {
 .home-card:nth-child(19) { animation-delay: .76s; }
 .home-card:nth-child(20) { animation-delay: .80s; }
 .home-card:nth-child(21) { animation-delay: .84s; }
+.home-card:nth-child(22) { animation-delay: .88s; }
+.home-card:nth-child(23) { animation-delay: .92s; }
+.home-card:nth-child(24) { animation-delay: .96s; }
+.home-card:nth-child(25) { animation-delay: 1.00s; }
+.home-card:nth-child(26) { animation-delay: 1.04s; }
+.home-card:nth-child(27) { animation-delay: 1.08s; }
+.home-card:nth-child(28) { animation-delay: 1.12s; }
+.home-card:nth-child(29) { animation-delay: 1.16s; }
 .home-card:hover {
   background: #011318;
   transform: translateY(-4px) scale(1.015);

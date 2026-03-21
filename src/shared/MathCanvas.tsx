@@ -21,6 +21,19 @@ export const MathCanvas: React.FC<Props> = ({ draw }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Size canvas to match its displayed container
+    const parent = canvas.parentElement;
+    if (parent) {
+      const w = parent.clientWidth;
+      const h = Math.min(Math.round(w * 0.68), 500);
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        canvas.style.height = h + 'px';
+      }
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     const mouseLabel = draw(canvas, ctx, mouseRef.current.x, mouseRef.current.y);
 
     const infoEl = mouseInfoRef.current;
@@ -45,12 +58,9 @@ export const MathCanvas: React.FC<Props> = ({ draw }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const scaleX = canvas.width / dpr / rect.width;
-    const scaleY = canvas.height / dpr / rect.height;
     mouseRef.current = {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
     };
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(render);
