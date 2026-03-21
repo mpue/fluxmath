@@ -649,6 +649,15 @@ input[type="range"]::-moz-range-thumb {
 .home-card:nth-child(10) { animation-delay: .40s; }
 .home-card:nth-child(11) { animation-delay: .44s; }
 .home-card:nth-child(12) { animation-delay: .48s; }
+.home-card:nth-child(13) { animation-delay: .52s; }
+.home-card:nth-child(14) { animation-delay: .56s; }
+.home-card:nth-child(15) { animation-delay: .60s; }
+.home-card:nth-child(16) { animation-delay: .64s; }
+.home-card:nth-child(17) { animation-delay: .68s; }
+.home-card:nth-child(18) { animation-delay: .72s; }
+.home-card:nth-child(19) { animation-delay: .76s; }
+.home-card:nth-child(20) { animation-delay: .80s; }
+.home-card:nth-child(21) { animation-delay: .84s; }
 .home-card:hover {
   background: #011318;
   transform: translateY(-4px) scale(1.015);
@@ -704,6 +713,35 @@ input[type="range"]::-moz-range-thumb {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.card-progress {
+  position: relative;
+  margin-top: 10px;
+  height: 14px;
+  background: rgba(0,212,255,0.04);
+  border: 1px solid rgba(0,212,255,0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.card-progress-bar {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(0,255,136,0.2), rgba(0,255,136,0.35));
+  border-right: 1px solid rgba(0,255,136,0.5);
+  transition: width .4s ease;
+}
+.card-progress-label {
+  position: relative;
+  z-index: 1;
+  display: block;
+  text-align: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  line-height: 14px;
+  color: rgba(0,255,136,0.7);
+  letter-spacing: .04em;
 }
 
 /* ============================================================

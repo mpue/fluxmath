@@ -23,6 +23,12 @@ import './topics/KomplexeZahlen';
 import './topics/FolgenUndReihen';
 import './topics/Matrizen';
 import './topics/RationaleFunktionen';
+import './topics/Hypothesentests';
+import './topics/GeradenEbenen';
+import './topics/Wahrscheinlichkeit';
+import './topics/Logarithmusfunktionen';
+import './topics/Grenzwerte';
+import './topics/Kurvendiskussion';
 
 /** Plays slide_in / slide_out on route changes, click SFX on button taps */
 const SfxTriggers: React.FC = () => {
