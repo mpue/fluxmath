@@ -38,6 +38,7 @@ import './topics/LineareGleichungssysteme';
 import './topics/Determinanten';
 import './topics/Eigenwerte';
 import './topics/Vektorraeume';
+import './topics/Fraktale';
 
 // Tools
 import './topics/tools/Funktionsplotter';
