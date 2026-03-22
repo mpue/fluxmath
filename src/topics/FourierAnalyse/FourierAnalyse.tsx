@@ -77,6 +77,12 @@ export const FourierAnalyse: React.FC = () => {
   const trailRef = useRef<{ x: number; y: number }[]>([]);
   const lastFrameRef = useRef(0);
 
+  // Epicycle zoom & pan
+  const epiZoomRef = useRef(1);
+  const epiPanRef = useRef({ x: 0, y: 0 });
+  const epiDragRef = useRef({ active: false, startX: 0, startY: 0, panX: 0, panY: 0 });
+  const epiCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const maxN = 30;
   const coeffs = computeCoefficients(signal, maxN);
   const N = Math.min(harmonics, maxN);
@@ -365,6 +371,14 @@ export const FourierAnalyse: React.FC = () => {
 
       const t = timeRef.current;
 
+      // Apply zoom & pan
+      const zoom = epiZoomRef.current;
+      const panX = epiPanRef.current.x;
+      const panY = epiPanRef.current.y;
+      ctx.save();
+      ctx.translate(panX, panY);
+      ctx.scale(zoom, zoom);
+
       // Build circles: each harmonic → (amplitude, frequency, phase)
       const circles: { amp: number; freq: number; phase: number }[] = [];
       for (let n = 1; n <= N; n++) {
@@ -381,7 +395,17 @@ export const FourierAnalyse: React.FC = () => {
       // Epicycle center
       const epicenterX = w * 0.3;
       const epicenterY = h * 0.5;
-      const scale = Math.min(w * 0.18, h * 0.3);
+
+      // Compute total radius so we can fit everything
+      const dcAmp = Math.abs(coeffs.a[0]);
+      const totalRadius = circles.reduce((s, c) => s + c.amp, 0) + dcAmp;
+      const margin = 30; // px padding from edges
+      const maxUp = epicenterY - margin;
+      const maxDown = h - epicenterY - margin;
+      const maxLeft = epicenterX - margin;
+      const maxRight = (w * 0.5) - epicenterX; // stay within left half
+      const maxReach = Math.min(maxUp, maxDown, maxLeft, maxRight);
+      const scale = totalRadius > 0 ? Math.min(maxReach / totalRadius, Math.min(w * 0.18, h * 0.3)) : Math.min(w * 0.18, h * 0.3);
 
       // Draw circles chain
       let cx = epicenterX;
@@ -403,9 +427,9 @@ export const FourierAnalyse: React.FC = () => {
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Radius line
-        const nx = cx + r * Math.cos(angle);
-        const ny = cy - r * Math.sin(angle);
+        // Radius line (rotated 90° so y-displacement = signal value)
+        const nx = cx + r * Math.sin(angle);
+        const ny = cy - r * Math.cos(angle);
 
         ctx.strokeStyle = `rgba(0,212,255,${0.2 + 0.06 * Math.min(i, 5)})`;
         ctx.lineWidth = 1.2;
@@ -510,12 +534,15 @@ export const FourierAnalyse: React.FC = () => {
         ctx.stroke();
       }
 
-      // Labels
+      // Restore transform before drawing HUD labels (so they stay crisp)
+      ctx.restore();
+
+      // Labels (drawn in screen space so they stay readable)
       ctx.font = '11px "Share Tech Mono", monospace';
       ctx.fillStyle = C.axisLabel;
       ctx.textAlign = 'center';
-      ctx.fillText('Epizirkel', epicenterX, 15);
-      ctx.fillText('Signal', waveLeft + waveW / 2, 15);
+      ctx.fillText('Epizirkel', w * 0.3, 15);
+      ctx.fillText('Signal', (w * 0.55 + w - 20) / 2, 15);
 
       // Circle count label
       ctx.font = '10px "Share Tech Mono", monospace';
@@ -523,10 +550,141 @@ export const FourierAnalyse: React.FC = () => {
       ctx.textAlign = 'left';
       ctx.fillText(`${circles.length} Kreise`, 10, h - 10);
 
+      // Zoom indicator
+      if (Math.abs(zoom - 1) > 0.01) {
+        ctx.textAlign = 'right';
+        ctx.fillText(`Zoom: ${zoom.toFixed(2)}×`, w - 10, h - 10);
+      }
+
       return `t: ${fmt(t, 2)}   Kreise: ${circles.length}`;
     },
     [coeffs, N, signal, showOriginal],
   );
+
+  // Epicycle wheel (zoom) and drag (pan) event wiring
+  useEffect(() => {
+    if (tab !== 'epizirkel') return;
+    const canvasEl = document.querySelector('.canvas-wrap canvas') as HTMLCanvasElement | null;
+    if (!canvasEl) return;
+    epiCanvasRef.current = canvasEl;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvasEl.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const oldZoom = epiZoomRef.current;
+      const factor = Math.pow(0.998, e.deltaY);
+      const newZoom = Math.max(0.2, Math.min(20, oldZoom * factor));
+      // Zoom toward cursor
+      epiPanRef.current = {
+        x: mx - (mx - epiPanRef.current.x) * (newZoom / oldZoom),
+        y: my - (my - epiPanRef.current.y) * (newZoom / oldZoom),
+      };
+      epiZoomRef.current = newZoom;
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      epiDragRef.current = {
+        active: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        panX: epiPanRef.current.x,
+        panY: epiPanRef.current.y,
+      };
+      canvasEl.style.cursor = 'grabbing';
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      const d = epiDragRef.current;
+      if (!d.active) {
+        canvasEl.style.cursor = 'grab';
+        return;
+      }
+      epiPanRef.current = {
+        x: d.panX + (e.clientX - d.startX),
+        y: d.panY + (e.clientY - d.startY),
+      };
+    };
+    const onMouseUp = () => {
+      epiDragRef.current.active = false;
+      canvasEl.style.cursor = 'grab';
+    };
+    const onDblClick = () => {
+      epiZoomRef.current = 1;
+      epiPanRef.current = { x: 0, y: 0 };
+      trailRef.current = [];
+    };
+
+    // Touch support
+    let lastTouchDist = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        epiDragRef.current = {
+          active: true,
+          startX: t.clientX,
+          startY: t.clientY,
+          panX: epiPanRef.current.x,
+          panY: epiPanRef.current.y,
+        };
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && epiDragRef.current.active) {
+        const t = e.touches[0];
+        const d = epiDragRef.current;
+        epiPanRef.current = {
+          x: d.panX + (t.clientX - d.startX),
+          y: d.panY + (t.clientY - d.startY),
+        };
+      } else if (e.touches.length === 2 && lastTouchDist > 0) {
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const factor = dist / lastTouchDist;
+        epiZoomRef.current = Math.max(0.2, Math.min(20, epiZoomRef.current * factor));
+        lastTouchDist = dist;
+      }
+    };
+    const onTouchEnd = () => {
+      epiDragRef.current.active = false;
+      lastTouchDist = 0;
+    };
+
+    canvasEl.addEventListener('wheel', onWheel, { passive: false });
+    canvasEl.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    canvasEl.addEventListener('dblclick', onDblClick);
+    canvasEl.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvasEl.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvasEl.addEventListener('touchend', onTouchEnd);
+    canvasEl.style.cursor = 'grab';
+
+    return () => {
+      canvasEl.removeEventListener('wheel', onWheel);
+      canvasEl.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      canvasEl.removeEventListener('dblclick', onDblClick);
+      canvasEl.removeEventListener('touchstart', onTouchStart);
+      canvasEl.removeEventListener('touchmove', onTouchMove);
+      canvasEl.removeEventListener('touchend', onTouchEnd);
+      canvasEl.style.cursor = '';
+    };
+  }, [tab]);
+
+  // Reset zoom/pan when switching signal or harmonics
+  useEffect(() => {
+    epiZoomRef.current = 1;
+    epiPanRef.current = { x: 0, y: 0 };
+  }, [signal, harmonics]);
 
   // Animation loop for epicycle tab
   useEffect(() => {
@@ -545,7 +703,7 @@ export const FourierAnalyse: React.FC = () => {
       timeRef.current += dt * epicycleSpeed * 0.3;
 
       // Force re-render by reading the canvas
-      const canvasEl = document.querySelector('.canvas-wrap canvas') as HTMLCanvasElement | null;
+      const canvasEl = epiCanvasRef.current ?? document.querySelector('.canvas-wrap canvas') as HTMLCanvasElement | null;
       if (canvasEl) {
         const ctx = canvasEl.getContext('2d');
         if (ctx) {
