@@ -1,105 +1,127 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-/* ── WebGL Fractal Renderer (GPU-accelerated) ────────── */
+/* ═══════════════════════════════════════════════════════
+   Arbitrary-precision fixed-point arithmetic (BigInt)
+   ═══════════════════════════════════════════════════════ */
+const PREC = 128; // fractional bits → ~38 decimal digits
+const PREC_N = BigInt(PREC);
+const TWO52 = 4503599627370496; // 2^52
+
+function fpFrom(x: number): bigint {
+  if (x === 0) return 0n;
+  const m = BigInt(Math.round(x * TWO52));
+  return m << (PREC_N - 52n);
+}
+
+function fpToFloat(a: bigint): number {
+  if (a === 0n) return 0;
+  const neg = a < 0n;
+  const abs = neg ? -a : a;
+  const bits = abs.toString(2).length;
+  if (bits <= 53) {
+    const v = Number(abs) / Math.pow(2, PREC);
+    return neg ? -v : v;
+  }
+  const shift = bits - 53;
+  const top = Number(abs >> BigInt(shift));
+  const v = top * Math.pow(2, shift - PREC);
+  return neg ? -v : v;
+}
+
+function fpMul(a: bigint, b: bigint): bigint { return (a * b) >> PREC_N; }
+function fpAdd(a: bigint, b: bigint): bigint { return a + b; }
+function fpSub(a: bigint, b: bigint): bigint { return a - b; }
+
+const DIRECT_THRESHOLD = 1e4; // below this zoom, use float32 direct iteration
+
+/* ═══════════════════════════════════════════════════════
+   Reference orbit computation (arbitrary precision)
+   ═══════════════════════════════════════════════════════ */
+interface RefOrbit {
+  re: Float32Array;
+  im: Float32Array;
+  len: number;
+}
+
+function computeRefOrbit(
+  cxBig: bigint, cyBig: bigint, maxIter: number,
+  isMandelbrot: boolean, juliaCx?: bigint, juliaCy?: bigint,
+): RefOrbit {
+  const re = new Float32Array(maxIter + 1);
+  const im = new Float32Array(maxIter + 1);
+  let zr: bigint, zi: bigint, cr: bigint, ci: bigint;
+
+  if (isMandelbrot) {
+    zr = 0n; zi = 0n; cr = cxBig; ci = cyBig;
+  } else {
+    zr = cxBig; zi = cyBig; cr = juliaCx!; ci = juliaCy!;
+  }
+
+  let len = maxIter;
+  for (let i = 0; i <= maxIter; i++) {
+    const zrF = fpToFloat(zr);
+    const ziF = fpToFloat(zi);
+    re[i] = zrF;
+    im[i] = ziF;
+    if (zrF * zrF + ziF * ziF > 1e18) { len = i; break; }
+    const zr2 = fpMul(zr, zr);
+    const zi2 = fpMul(zi, zi);
+    const zrzi = fpMul(zr, zi);
+    zr = fpAdd(fpSub(zr2, zi2), cr);
+    zi = fpAdd(fpAdd(zrzi, zrzi), ci);
+  }
+  return { re, im, len };
+}
+
+/* ═══════════════════════════════════════════════════════
+   WebGL shaders
+   ═══════════════════════════════════════════════════════ */
 const VERT_SRC = `
 attribute vec2 a_pos;
 void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
 `;
 
-const FRAG_SRC = `
+const FRAG_PERTURB = `
 precision highp float;
+uniform sampler2D u_orbit;    // reference orbit texture (RGBA float)
+uniform vec2  u_orbitSize;    // texture width, height
 uniform vec2  u_resolution;
-// Center as Double-Double: each axis split into 4 floats (a0+a1+a2+a3)
-uniform vec4  u_cx;  // (hi0, lo0, hi1, lo1) for real
-uniform vec4  u_cy;  // (hi0, lo0, hi1, lo1) for imag
-uniform float u_zoom;
+uniform float u_pixelSpan;    // 3.0 / zoom
+uniform float u_aspect;
 uniform int   u_maxIter;
-uniform int   u_fractal;   // 0 = mandelbrot, 1 = julia
-uniform vec2  u_juliaC;
+uniform int   u_refLen;       // length of reference orbit
+uniform int   u_fractal;      // 0 = mandelbrot, 1 = julia
 uniform int   u_palette;
+uniform int   u_mode;        // 0 = direct, 1 = perturbation
+uniform vec2  u_center;      // float32 center (direct mode)
+uniform vec2  u_juliaC;      // Julia c for direct mode
+uniform vec2  u_viewOffset;  // shift from ref orbit center
 
-// ══════════════════════════════════════════════════════
-// Double-Double arithmetic using pairs of floats (vec2)
-// Each DD number = (hi, lo) where value ≈ hi + lo
-// Total precision: ~44-48 mantissa bits (~14 decimal digits)
-// ══════════════════════════════════════════════════════
-
-// Error-free addition of two floats → (sum, error)
-vec2 twoSum(float a, float b) {
-  float s = a + b;
-  float v = s - a;
-  float e = (a - (s - v)) + (b - v);
-  return vec2(s, e);
+vec3 readOrbit(int n) {
+  float idx = float(n);
+  float tx = mod(idx, u_orbitSize.x);
+  float ty = floor(idx / u_orbitSize.x);
+  vec2 uv = vec2((tx + 0.5) / u_orbitSize.x, (ty + 0.5) / u_orbitSize.y);
+  return texture2D(u_orbit, uv).rgb;
 }
 
-// DD + DD
-vec2 dd_add(vec2 a, vec2 b) {
-  vec2 s = twoSum(a.x, b.x);
-  s.y += a.y + b.y;
-  return twoSum(s.x, s.y);
-}
-
-// DD - DD
-vec2 dd_sub(vec2 a, vec2 b) {
-  return dd_add(a, vec2(-b.x, -b.y));
-}
-
-// Veltkamp split for exact product
-vec2 vSplit(float a) {
-  float c = 4097.0 * a;
-  float hi = c - (c - a);
-  return vec2(hi, a - hi);
-}
-
-// Error-free product of two floats → (product, error)
-vec2 twoProd(float a, float b) {
-  float p = a * b;
-  vec2 sa = vSplit(a);
-  vec2 sb = vSplit(b);
-  float e = ((sa.x*sb.x - p) + sa.x*sb.y + sa.y*sb.x) + sa.y*sb.y;
-  return vec2(p, e);
-}
-
-// DD * DD
-vec2 dd_mul(vec2 a, vec2 b) {
-  vec2 p = twoProd(a.x, b.x);
-  p.y += a.x*b.y + a.y*b.x;
-  return twoSum(p.x, p.y);
-}
-
-// DD from single float
-vec2 dd_set(float a) { return vec2(a, 0.0); }
-
-// DD from hi+lo pair (already split on CPU side)
-vec2 dd_from(float hi, float lo) { return vec2(hi, lo); }
-
-// DD > float comparison (approximate, for bailout)
-bool dd_gt(vec2 a, float v) { return a.x > v; }
-
-// ── palette functions ──
+// ── palettes ──
 vec3 palCyber(float t) {
-  float r = 9.0*(1.0-t)*t*t*t;
-  float g = 15.0*(1.0-t)*(1.0-t)*t*t;
-  float b = 8.5*(1.0-t)*(1.0-t)*(1.0-t)*t;
-  return vec3(min(1.0,r), min(1.0,g+0.157), min(1.0,b+0.314));
+  float r=9.0*(1.0-t)*t*t*t; float g=15.0*(1.0-t)*(1.0-t)*t*t;
+  float b=8.5*(1.0-t)*(1.0-t)*(1.0-t)*t;
+  return vec3(min(1.0,r),min(1.0,g+0.157),min(1.0,b+0.314));
 }
-vec3 palFlamme(float t) {
-  return vec3(min(1.0,t*4.0), min(1.0,t*t*2.0), t*0.235);
-}
+vec3 palFlamme(float t) { return vec3(min(1.0,t*4.0),min(1.0,t*t*2.0),t*0.235); }
 vec3 palNeon(float t) {
-  float h = t*6.0; float c = 1.0;
-  float x = c*(1.0-abs(mod(h,2.0)-1.0));
+  float h=t*6.0; float c=1.0; float x=c*(1.0-abs(mod(h,2.0)-1.0));
   vec3 rgb;
-  if      (h<1.0) rgb=vec3(c,x,0);
-  else if (h<2.0) rgb=vec3(x,c,0);
-  else if (h<3.0) rgb=vec3(0,c,x);
-  else if (h<4.0) rgb=vec3(0,x,c);
-  else if (h<5.0) rgb=vec3(x,0,c);
-  else            rgb=vec3(c,0,x);
+  if(h<1.0) rgb=vec3(c,x,0.0); else if(h<2.0) rgb=vec3(x,c,0.0);
+  else if(h<3.0) rgb=vec3(0.0,c,x); else if(h<4.0) rgb=vec3(0.0,x,c);
+  else if(h<5.0) rgb=vec3(x,0.0,c); else rgb=vec3(c,0.0,x);
   return rgb;
 }
-vec3 palOzean(float t) { return vec3(t*0.118, 0.314+t*0.686, 0.471+t*0.529); }
-vec3 palMono(float t)  { return vec3(t); }
+vec3 palOzean(float t) { return vec3(t*0.118,0.314+t*0.686,0.471+t*0.529); }
+vec3 palMono(float t) { return vec3(t); }
 vec3 palInferno(float t) {
   vec3 a=vec3(0.001,0.0,0.014); vec3 b=vec3(0.847,0.058,0.381);
   vec3 c2=vec3(0.986,0.635,0.033); vec3 d=vec3(0.988,1.0,0.644);
@@ -126,64 +148,162 @@ vec3 getPalette(float t) {
 
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution;
-  float aspect = u_resolution.x / u_resolution.y;
-  float pixelSpan = 3.0 / u_zoom;
 
-  // Build pixel coordinate as DD using the 4-float center
-  // re = cx + (uv.x - 0.5) * pixelSpan * aspect
-  vec2 dd_cx = dd_add(dd_from(u_cx.x, u_cx.y), dd_from(u_cx.z, u_cx.w));
-  vec2 dd_cy = dd_add(dd_from(u_cy.x, u_cy.y), dd_from(u_cy.z, u_cy.w));
-
-  vec2 dd_offset_re = dd_set((uv.x - 0.5) * pixelSpan * aspect);
-  vec2 dd_offset_im = dd_set((0.5 - uv.y) * pixelSpan);
-
-  vec2 dd_re = dd_add(dd_cx, dd_offset_re);
-  vec2 dd_im = dd_add(dd_cy, dd_offset_im);
-
-  // Set up iteration
-  vec2 dd_zr, dd_zi, dd_cr, dd_ci;
-  if (u_fractal == 0) {
-    dd_zr = dd_set(0.0); dd_zi = dd_set(0.0);
-    dd_cr = dd_re; dd_ci = dd_im;
-  } else {
-    dd_zr = dd_re; dd_zi = dd_im;
-    dd_cr = dd_set(u_juliaC.x); dd_ci = dd_set(u_juliaC.y);
+  if (u_mode == 0) {
+    // ── Direct float32 iteration (low zoom) ──
+    float px_re = u_center.x + (uv.x - 0.5) * u_pixelSpan * u_aspect;
+    float px_im = u_center.y + (0.5 - uv.y) * u_pixelSpan;
+    float zr, zi, cr, ci;
+    if (u_fractal == 0) {
+      zr = 0.0; zi = 0.0; cr = px_re; ci = px_im;
+    } else {
+      zr = px_re; zi = px_im; cr = u_juliaC.x; ci = u_juliaC.y;
+    }
+    for (int i = 0; i < 10000; i++) {
+      if (i >= u_maxIter) break;
+      float nr = zr*zr - zi*zi + cr;
+      float ni = 2.0*zr*zi + ci;
+      zr = nr; zi = ni;
+      float m2 = zr*zr + zi*zi;
+      if (m2 > 256.0) {
+        float log_zn = log(m2) * 0.5;
+        float nu = log(log_zn / log(2.0)) / log(2.0);
+        float s = float(i) + 1.0 - nu;
+        float t = clamp(s / float(u_maxIter) * 4.0, 0.0, 1.0);
+        gl_FragColor = vec4(getPalette(t), 1.0);
+        return;
+      }
+    }
+    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
   }
+
+  // ── Perturbation mode (high zoom) ──
+  float dc_re = (uv.x - 0.5) * u_pixelSpan * u_aspect + u_viewOffset.x;
+  float dc_im = (0.5 - uv.y) * u_pixelSpan + u_viewOffset.y;
+
+  // δ_0 = 0 for Mandelbrot (z_0 = 0 for all pixels), δ_0 = δc for Julia
+  float dr = (u_fractal == 0) ? 0.0 : dc_re;
+  float di = (u_fractal == 0) ? 0.0 : dc_im;
+
+  // Absolute c for this pixel (for direct fallback)
+  float pixel_cr = u_center.x + dc_re;
+  float pixel_ci = u_center.y + dc_im;
+  if (u_fractal == 1) { pixel_cr = u_juliaC.x; pixel_ci = u_juliaC.y; }
 
   int iter = 0;
-  float mag2 = 0.0;
+  bool glitched = false;
+  float fallback_zr = 0.0;
+  float fallback_zi = 0.0;
+
   for (int i = 0; i < 10000; i++) {
-    if (i >= u_maxIter) break;
-    vec2 dd_zr2 = dd_mul(dd_zr, dd_zr);
-    vec2 dd_zi2 = dd_mul(dd_zi, dd_zi);
-    // Bailout: |z|² > 256
-    mag2 = dd_zr2.x + dd_zi2.x;
-    if (mag2 > 256.0) break;
-    // zi = 2·zr·zi + ci
-    vec2 dd_zrzi = dd_mul(dd_zr, dd_zi);
-    dd_zi = dd_add(dd_add(dd_zrzi, dd_zrzi), dd_ci);
-    // zr = zr² - zi² + cr
-    dd_zr = dd_add(dd_sub(dd_zr2, dd_zi2), dd_cr);
-    iter++;
+    if (i >= u_maxIter || i >= u_refLen) break;
+
+    vec3 ref = readOrbit(i);
+    float Zr = ref.x;
+    float Zi = ref.y;
+
+    // Full z = Z + δ
+    float fr = Zr + dr;
+    float fi = Zi + di;
+    float mag2 = fr*fr + fi*fi;
+
+    if (mag2 > 256.0) {
+      // Smooth coloring
+      float log_zn = log(mag2) * 0.5;
+      float nu = log(log_zn / log(2.0)) / log(2.0);
+      float s = float(i) + 1.0 - nu;
+      float t = clamp(s / float(u_maxIter) * 4.0, 0.0, 1.0);
+      gl_FragColor = vec4(getPalette(t), 1.0);
+      return;
+    }
+
+    // Perturbation recurrence:
+    // Mandelbrot: δ_{n+1} = 2·Z_n·δ_n + δ_n² + δc
+    // Julia:      δ_{n+1} = 2·Z_n·δ_n + δ_n²
+    float ndr = 2.0*(Zr*dr - Zi*di) + dr*dr - di*di;
+    float ndi = 2.0*(Zr*di + Zi*dr) + 2.0*dr*di;
+    if (u_fractal == 0) { ndr += dc_re; ndi += dc_im; }
+    dr = ndr;
+    di = ndi;
+
+    // Glitch detection: if |δ|² > |Z_{n+1}|², perturbation is unreliable.
+    // Fall back to direct float32 iteration from full z value.
+    float d2 = dr*dr + di*di;
+    float Z2 = Zr*Zr + Zi*Zi;
+    if (d2 > Z2 && Z2 > 1e-6) {
+      // Recover full z_{n+1} = Z_{n+1} + δ_{n+1}
+      // Z_{n+1} is stored at orbit[i+1] if available
+      if (i + 1 < u_refLen) {
+        vec3 refN = readOrbit(i + 1);
+        fallback_zr = refN.x + dr;
+        fallback_zi = refN.y + di;
+      } else {
+        // Use Z_n-based full z: iterate fr,fi one step
+        fallback_zr = fr*fr - fi*fi;
+        fallback_zi = 2.0*fr*fi;
+        if (u_fractal == 0) { fallback_zr += pixel_cr; fallback_zi += pixel_ci; }
+      }
+      iter = i + 1;
+      glitched = true;
+      break;
+    }
+
+    iter = i + 1;
   }
 
-  if (iter >= u_maxIter) {
-    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-  } else {
-    float log_zn = log(mag2) * 0.5;
-    float nu = log(log_zn / log(2.0)) / log(2.0);
-    float smooth_iter = float(iter) + 1.0 - nu;
-    float t = clamp(smooth_iter / float(u_maxIter) * 4.0, 0.0, 1.0);
-    gl_FragColor = vec4(getPalette(t), 1.0);
+  // Direct float32 fallback — either glitch or reference orbit exhausted
+  if ((glitched || iter >= u_refLen) && iter < u_maxIter) {
+    float zr, zi;
+    if (glitched) {
+      zr = fallback_zr;
+      zi = fallback_zi;
+    } else {
+      vec3 refAt = readOrbit(u_refLen);
+      zr = refAt.x + dr;
+      zi = refAt.y + di;
+    }
+    for (int j = 0; j < 10000; j++) {
+      if (iter >= u_maxIter) break;
+      float m2 = zr*zr + zi*zi;
+      if (m2 > 256.0) {
+        float log_zn = log(m2) * 0.5;
+        float nu = log(log_zn / log(2.0)) / log(2.0);
+        float s = float(iter) + 1.0 - nu;
+        float t = clamp(s / float(u_maxIter) * 4.0, 0.0, 1.0);
+        gl_FragColor = vec4(getPalette(t), 1.0);
+        return;
+      }
+      float nr = zr*zr - zi*zi + pixel_cr;
+      float ni = 2.0*zr*zi + pixel_ci;
+      zr = nr; zi = ni;
+      iter = iter + 1;
+    }
   }
+
+  gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 `;
 
 const PALETTE_NAMES = ['Cyber', 'Flamme', 'Neon', 'Ozean', 'Mono', 'Inferno', 'Aurora'];
 
-function initGL(canvas: HTMLCanvasElement) {
+/* ═══════════════════════════════════════════════════════
+   WebGL initialisation with orbit texture
+   ═══════════════════════════════════════════════════════ */
+interface GLCtx {
+  gl: WebGLRenderingContext;
+  orbitTex: WebGLTexture;
+  orbitTexW: number;
+  orbitTexH: number;
+  uniforms: Record<string, WebGLUniformLocation | null>;
+}
+
+function initGL(canvas: HTMLCanvasElement): GLCtx | null {
   const gl = canvas.getContext('webgl', { antialias: false, preserveDrawingBuffer: true });
   if (!gl) return null;
+
+  const floatExt = gl.getExtension('OES_texture_float');
+  if (!floatExt) { console.error('OES_texture_float not available'); return null; }
 
   const compile = (type: number, src: string) => {
     const s = gl.createShader(type)!;
@@ -197,7 +317,7 @@ function initGL(canvas: HTMLCanvasElement) {
   };
 
   const vs = compile(gl.VERTEX_SHADER, VERT_SRC);
-  const fs = compile(gl.FRAGMENT_SHADER, FRAG_SRC);
+  const fs = compile(gl.FRAGMENT_SHADER, FRAG_PERTURB);
   if (!vs || !fs) return null;
 
   const prog = gl.createProgram()!;
@@ -218,43 +338,90 @@ function initGL(canvas: HTMLCanvasElement) {
   gl.enableVertexAttribArray(aPos);
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
+  // Orbit texture
+  const orbitTex = gl.createTexture()!;
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, orbitTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.uniform1i(gl.getUniformLocation(prog, 'u_orbit'), 0);
+
   return {
-    gl,
+    gl, orbitTex, orbitTexW: 0, orbitTexH: 0,
     uniforms: {
       resolution: gl.getUniformLocation(prog, 'u_resolution'),
-      cx:         gl.getUniformLocation(prog, 'u_cx'),
-      cy:         gl.getUniformLocation(prog, 'u_cy'),
-      zoom:       gl.getUniformLocation(prog, 'u_zoom'),
+      orbitSize:  gl.getUniformLocation(prog, 'u_orbitSize'),
+      pixelSpan:  gl.getUniformLocation(prog, 'u_pixelSpan'),
+      aspect:     gl.getUniformLocation(prog, 'u_aspect'),
       maxIter:    gl.getUniformLocation(prog, 'u_maxIter'),
+      refLen:     gl.getUniformLocation(prog, 'u_refLen'),
       fractal:    gl.getUniformLocation(prog, 'u_fractal'),
-      juliaC:     gl.getUniformLocation(prog, 'u_juliaC'),
       palette:    gl.getUniformLocation(prog, 'u_palette'),
+      mode:       gl.getUniformLocation(prog, 'u_mode'),
+      center:     gl.getUniformLocation(prog, 'u_center'),
+      juliaC:     gl.getUniformLocation(prog, 'u_juliaC'),
+      viewOffset: gl.getUniformLocation(prog, 'u_viewOffset'),
     },
   };
 }
 
-/* ── Component ───────────────────────────────────────── */
+function uploadOrbit(ctx: GLCtx, orbit: RefOrbit) {
+  const { gl, orbitTex } = ctx;
+  const n = orbit.len + 1;
+  const texW = Math.min(n, 2048);
+  const texH = Math.ceil(n / texW);
+  const total = texW * texH;
+  const data = new Float32Array(total * 4);
+  for (let i = 0; i < n; i++) {
+    data[i * 4]     = orbit.re[i];
+    data[i * 4 + 1] = orbit.im[i];
+    data[i * 4 + 2] = 0;
+    data[i * 4 + 3] = 0;
+  }
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, orbitTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texW, texH, 0, gl.RGBA, gl.FLOAT, data);
+  ctx.orbitTexW = texW;
+  ctx.orbitTexH = texH;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Component
+   ═══════════════════════════════════════════════════════ */
 type FractalType = 'mandelbrot' | 'julia';
+
+function fmtZoom(z: number): string {
+  if (z < 1e6) return z.toFixed(1) + 'x';
+  return z.toExponential(2) + 'x';
+}
 
 export const FraktaleExplorer: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const glRef = useRef<ReturnType<typeof initGL>>(null);
+  const glRef = useRef<GLCtx | null>(null);
   const hudRef = useRef<HTMLCanvasElement>(null);
   const [fracArr, setFrac] = useState<FractalType>('mandelbrot');
-  const [maxIter, setMaxIter] = useState(200);
+  const [maxIter, setMaxIter] = useState(300);
   const [palIdx, setPalIdx] = useState(0);
   const [juliaC, setJuliaC] = useState({ re: -0.7, im: 0.27015 });
-  const [qualityScale, setQualityScale] = useState(100); // percent of native DPR resolution
+  const [qualityScale, setQualityScale] = useState(100);
   const [gpuOk, setGpuOk] = useState(true);
   const [canvasSize, setCanvasSize] = useState({ w: 900, h: 600 });
 
-  // View state
-  const viewRef = useRef({ cx: -0.5, cy: 0, zoom: 1 });
-  const dragRef = useRef({ dragging: false, sx: 0, sy: 0, scx: 0, scy: 0 });
+  // High-precision center (BigInt fixed-point) + float64 zoom
+  const bigCenter = useRef({ re: fpFrom(-0.5), im: fpFrom(0) });
+  const zoomRef = useRef(1);
+  const dragRef = useRef({
+    dragging: false, sx: 0, sy: 0,
+    scxBig: 0n, scyBig: 0n,
+  });
+  const orbitRef = useRef<RefOrbit | null>(null);
+  const refCenterRef = useRef({ re: 0n, im: 0n });
   const [, forceRender] = useState(0);
   const kick = () => forceRender(n => n + 1);
 
-  // Track actual display size and adapt canvas resolution
+  // Track display size
   useEffect(() => {
     const wrap = canvasRef.current?.parentElement;
     if (!wrap) return;
@@ -263,7 +430,7 @@ export const FraktaleExplorer: React.FC = () => {
       const dpr = window.devicePixelRatio || 1;
       const scale = (qualityScale / 100) * dpr;
       const w = Math.round(rect.width * scale);
-      const h = Math.round(rect.width * (600 / 900) * scale); // keep 3:2 aspect
+      const h = Math.round(rect.width * (600 / 900) * scale);
       setCanvasSize(prev => (prev.w === w && prev.h === h) ? prev : { w, h });
     };
     resize();
@@ -272,7 +439,7 @@ export const FraktaleExplorer: React.FC = () => {
     return () => ro.disconnect();
   }, [qualityScale]);
 
-  // (Re-)init WebGL when canvas pixel size changes
+  // Init WebGL
   useEffect(() => {
     const cvs = canvasRef.current;
     if (!cvs) return;
@@ -288,31 +455,56 @@ export const FraktaleExplorer: React.FC = () => {
     const cvs = canvasRef.current!;
     const w = cvs.width, h = cvs.height;
     gl.viewport(0, 0, w, h);
-    const v = viewRef.current;
+    const zoom = zoomRef.current;
+    const pixelSpan = 3 / zoom;
+    const aspect = w / h;
+    const bc = bigCenter.current;
+    const isMandel = fracArr === 'mandelbrot';
+    const isDragging = dragRef.current.dragging;
+    const useDirectMode = zoom < DIRECT_THRESHOLD;
+
+    // Always set center + juliaC (needed for direct mode AND perturbation fallback)
+    const rcF = useDirectMode
+      ? { re: fpToFloat(bc.re), im: fpToFloat(bc.im) }
+      : { re: fpToFloat(refCenterRef.current.re), im: fpToFloat(refCenterRef.current.im) };
+    gl.uniform2f(uniforms.center, rcF.re, rcF.im);
+    gl.uniform2f(uniforms.juliaC, juliaC.re, juliaC.im);
+
+    if (useDirectMode) {
+      gl.uniform1i(uniforms.mode, 0);
+      gl.uniform2f(uniforms.viewOffset, 0, 0);
+    } else {
+      gl.uniform1i(uniforms.mode, 1);
+      if (!isDragging || !orbitRef.current) {
+        const orbit = computeRefOrbit(
+          bc.re, bc.im, maxIter, isMandel,
+          isMandel ? undefined : fpFrom(juliaC.re),
+          isMandel ? undefined : fpFrom(juliaC.im),
+        );
+        uploadOrbit(g, orbit);
+        orbitRef.current = orbit;
+        refCenterRef.current = { re: bc.re, im: bc.im };
+        gl.uniform2f(uniforms.viewOffset, 0, 0);
+      } else {
+        const rc = refCenterRef.current;
+        gl.uniform2f(uniforms.viewOffset,
+          fpToFloat(fpSub(bc.re, rc.re)),
+          fpToFloat(fpSub(bc.im, rc.im)));
+      }
+    }
 
     gl.uniform2f(uniforms.resolution, w, h);
-    // Split JS float64 center into 4 floats for Double-Double precision on GPU
-    // value = hi0 + lo0  +  hi1 + lo1  (cascading split)
-    const splitDD = (val: number): [number, number, number, number] => {
-      const hi0 = Math.fround(val);
-      const rem0 = val - hi0;
-      const hi1 = Math.fround(rem0);
-      const lo1 = rem0 - hi1;
-      return [hi0, 0, hi1, lo1];
-    };
-    const cxDD = splitDD(v.cx);
-    const cyDD = splitDD(v.cy);
-    gl.uniform4f(uniforms.cx, cxDD[0], cxDD[1], cxDD[2], cxDD[3]);
-    gl.uniform4f(uniforms.cy, cyDD[0], cyDD[1], cyDD[2], cyDD[3]);
-    gl.uniform1f(uniforms.zoom, v.zoom);
+    gl.uniform2f(uniforms.orbitSize, g.orbitTexW, g.orbitTexH);
+    gl.uniform1f(uniforms.pixelSpan, pixelSpan);
+    gl.uniform1f(uniforms.aspect, aspect);
     gl.uniform1i(uniforms.maxIter, maxIter);
-    gl.uniform1i(uniforms.fractal, fracArr === 'mandelbrot' ? 0 : 1);
-    gl.uniform2f(uniforms.juliaC, juliaC.re, juliaC.im);
+    gl.uniform1i(uniforms.refLen, orbitRef.current ? orbitRef.current.len : 0);
+    gl.uniform1i(uniforms.fractal, isMandel ? 0 : 1);
     gl.uniform1i(uniforms.palette, palIdx);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // HUD overlay on separate 2d canvas
+    // HUD
     const hud = hudRef.current;
     if (hud) {
       const ctx2 = hud.getContext('2d');
@@ -323,8 +515,12 @@ export const FraktaleExplorer: React.FC = () => {
         ctx2.font = '11px "Share Tech Mono", monospace';
         ctx2.fillStyle = '#00d4ff';
         ctx2.textBaseline = 'middle';
+        const cxF = fpToFloat(bc.re);
+        const cyF = fpToFloat(bc.im);
+        const modeLabel = useDirectMode ? 'Direct' : 'Perturbation';
+        const orbitLen = orbitRef.current ? orbitRef.current.len : 0;
         ctx2.fillText(
-          `GPU ⚡  ${w}×${h}   Zoom: ${v.zoom.toFixed(1)}x   Center: (${v.cx.toFixed(6)}, ${v.cy.toFixed(6)})   Iter: ${maxIter}`,
+          `GPU ⚡ ${modeLabel}  ${w}×${h}   Zoom: ${fmtZoom(zoom)}   Center: (${cxF.toExponential(8)}, ${cyF.toExponential(8)})   Iter: ${maxIter}  Orbit: ${orbitLen}`,
           8, 12,
         );
       }
@@ -333,6 +529,7 @@ export const FraktaleExplorer: React.FC = () => {
 
   useEffect(() => { render(); }, [render]);
 
+  // Event handlers with BigInt center
   useEffect(() => {
     const cvs = canvasRef.current;
     if (!cvs) return;
@@ -343,37 +540,57 @@ export const FraktaleExplorer: React.FC = () => {
       const r = rect();
       const mx = (e.clientX - r.left) / r.width;
       const my = (e.clientY - r.top) / r.height;
-      const v = viewRef.current;
       const aspect = cvs.width / cvs.height;
+      const zoom = zoomRef.current;
+      const pixelSpan = 3 / zoom;
       const factor = e.deltaY < 0 ? 1.3 : 1 / 1.3;
-      const wx = v.cx + (mx - 0.5) * (3 / v.zoom) * aspect;
-      const wy = v.cy + (my - 0.5) * (3 / v.zoom);
-      v.zoom *= factor;
-      v.cx = wx - (mx - 0.5) * (3 / v.zoom) * aspect;
-      v.cy = wy - (my - 0.5) * (3 / v.zoom);
+
+      // World position of mouse (BigInt precision)
+      const wxOff = fpFrom((mx - 0.5) * pixelSpan * aspect);
+      const wyOff = fpFrom((my - 0.5) * pixelSpan);
+      const wx = fpAdd(bigCenter.current.re, wxOff);
+      const wy = fpAdd(bigCenter.current.im, wyOff);
+
+      zoomRef.current = zoom * factor;
+      const newPixelSpan = 3 / zoomRef.current;
+
+      bigCenter.current.re = fpSub(wx, fpFrom((mx - 0.5) * newPixelSpan * aspect));
+      bigCenter.current.im = fpSub(wy, fpFrom((my - 0.5) * newPixelSpan));
       kick();
       render();
     };
 
     const onDown = (e: MouseEvent) => {
-      dragRef.current = { dragging: true, sx: e.clientX, sy: e.clientY, scx: viewRef.current.cx, scy: viewRef.current.cy };
+      dragRef.current = {
+        dragging: true, sx: e.clientX, sy: e.clientY,
+        scxBig: bigCenter.current.re, scyBig: bigCenter.current.im,
+      };
     };
     const onMove = (e: MouseEvent) => {
       const d = dragRef.current;
       if (!d.dragging) return;
       const r = rect();
-      const v = viewRef.current;
       const aspect = cvs.width / cvs.height;
-      const dx = (e.clientX - d.sx) / r.width * (3 / v.zoom) * aspect;
-      const dy = (e.clientY - d.sy) / r.height * (3 / v.zoom);
-      v.cx = d.scx - dx;
-      v.cy = d.scy - dy;
+      const pixelSpan = 3 / zoomRef.current;
+      const dx = (e.clientX - d.sx) / r.width * pixelSpan * aspect;
+      const dy = (e.clientY - d.sy) / r.height * pixelSpan;
+      bigCenter.current.re = fpSub(d.scxBig, fpFrom(dx));
+      bigCenter.current.im = fpSub(d.scyBig, fpFrom(dy));
       kick();
       render();
     };
-    const onUp = () => { dragRef.current.dragging = false; };
+    const onUp = () => {
+      if (dragRef.current.dragging) {
+        dragRef.current.dragging = false;
+        render();
+      }
+    };
     const onDbl = () => {
-      viewRef.current = { cx: fracArr === 'mandelbrot' ? -0.5 : 0, cy: 0, zoom: 1 };
+      bigCenter.current = {
+        re: fpFrom(fracArr === 'mandelbrot' ? -0.5 : 0),
+        im: fpFrom(0),
+      };
+      zoomRef.current = 1;
       kick();
       render();
     };
@@ -395,7 +612,9 @@ export const FraktaleExplorer: React.FC = () => {
 
   const switchFrac = (f: FractalType) => {
     setFrac(f);
-    viewRef.current = { cx: f === 'mandelbrot' ? -0.5 : 0, cy: 0, zoom: 1 };
+    bigCenter.current = { re: fpFrom(f === 'mandelbrot' ? -0.5 : 0), im: fpFrom(0) };
+    zoomRef.current = 1;
+    orbitRef.current = null;
     kick();
   };
 
@@ -405,7 +624,7 @@ export const FraktaleExplorer: React.FC = () => {
         <div className="header-eyebrow">Tools <span>// Fraktale-Explorer</span></div>
         <h1>Fraktale<em>Explorer</em></h1>
         <p className="subtitle" style={{ color: '#ff4444' }}>
-          WebGL wird von diesem Browser nicht unterstützt. Bitte verwende einen aktuellen Browser mit GPU-Unterstützung.
+          WebGL mit OES_texture_float wird benötigt. Bitte verwende einen aktuellen Browser mit GPU-Unterstützung.
         </p>
       </>
     );
@@ -415,7 +634,7 @@ export const FraktaleExplorer: React.FC = () => {
     <>
       <div className="header-eyebrow">Tools <span>// Fraktale-Explorer</span></div>
       <h1>Fraktale<em>Explorer</em></h1>
-      <p className="subtitle">Mandelbrot- & Julia-Mengen — GPU-beschleunigt in Echtzeit</p>
+      <p className="subtitle">Mandelbrot- & Julia-Mengen — Perturbation Theory, unbegrenzter Zoom</p>
 
       <div className="controls" style={{ gridTemplateColumns: 'auto auto auto auto auto' }}>
         <div className="ctrl">
@@ -434,7 +653,7 @@ export const FraktaleExplorer: React.FC = () => {
             <span className="ctrl-label">Iterationen</span>
             <span className="ctrl-value">{maxIter}</span>
           </div>
-          <input type="range" min={30} max={5000} step={10} value={maxIter} onChange={e => setMaxIter(+e.target.value)} />
+          <input type="range" min={30} max={10000} step={10} value={maxIter} onChange={e => setMaxIter(+e.target.value)} />
         </div>
         <div className="ctrl">
           <div className="ctrl-header">
@@ -484,18 +703,19 @@ export const FraktaleExplorer: React.FC = () => {
       </div>
 
       <div className="explanation">
-        <h2>Was sind Fraktale?</h2>
+        <h2>Perturbation Theory</h2>
         <p>
-          Fraktale sind geometrische Strukturen mit <strong>Selbstähnlichkeit</strong> — sie sehen auf jeder Vergrößerungsstufe
-          ähnlich aus. Die <strong>Mandelbrot-Menge</strong> entsteht durch die Iteration z → z² + c, wobei die schwarzen Bereiche
-          Punkte markieren, die nicht divergieren.
+          Dieser Explorer verwendet <strong>Perturbation Theory</strong> — ein Referenz-Orbit wird am Bildmittelpunkt
+          in beliebiger Präzision (128-Bit BigInt) berechnet. Die GPU berechnet pro Pixel nur die winzige Abweichung
+          (δ) vom Referenz-Orbit in float32. Dadurch sind <strong>Zooms bis ~10<sup>38</sup></strong> möglich,
+          ohne Präzisionsverlust.
         </p>
         <p>
-          <strong>Julia-Mengen</strong> verwenden dieselbe Formel, aber mit festem c — jeder c-Wert erzeugt eine einzigartige Menge.
+          <strong>Julia-Mengen</strong> verwenden dieselbe Technik mit dem Referenz-Orbit am Bildzentrum.
           Benutze die Regler, um verschiedene Julia-Mengen zu entdecken!
         </p>
         <p style={{ color: 'var(--muted)', fontSize: 12 }}>
-          GPU-beschleunigt ⚡ · Scrollen = Zoom (zum Mauszeiger) · Ziehen = Verschieben · Doppelklick = Reset
+          GPU + BigInt ⚡ · Scrollen = Zoom (zum Mauszeiger) · Ziehen = Verschieben · Doppelklick = Reset
         </p>
       </div>
     </>
