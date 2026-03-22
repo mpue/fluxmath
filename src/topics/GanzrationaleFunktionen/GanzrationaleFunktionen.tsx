@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { CoordinateSystem, Viewport, DragPoint } from '../../shared/CoordinateSystem';
 import { drawCurve, drawPoint, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
 import { PolynomialExercises } from './PolynomialExercises';
@@ -15,6 +15,37 @@ export const GanzrationaleFunktionen: React.FC = () => {
     for (let i = 0; i < realCoeffs.length; i++) y += realCoeffs[i] * Math.pow(x, i);
     return y;
   }, [realCoeffs]);
+
+  /* ── drag & drop ─────────────────────────────────────── */
+  const dragPts: DragPoint[] = [
+    { id: 'yint', x: 0, y: evalPoly(0), color: C.yint, label: 'c₀' },
+    { id: 'lead', x: 2, y: evalPoly(2), color: C.line, label: 'cₙ' },
+  ];
+
+  const handleDrag = useCallback((id: string, _x: number, y: number) => {
+    if (id === 'yint') {
+      // dragging y-intercept → adjust c₀
+      setCoeffs(prev => {
+        const n = [...prev];
+        n[0] = Math.max(-30, Math.min(30, Math.round(y * 10)));
+        return n;
+      });
+    }
+    if (id === 'lead') {
+      // dragging control point at x=2 → adjust leading coefficient cₙ
+      setCoeffs(prev => {
+        const rc = prev.map(v => v / 10);
+        const deg = prev.length - 1;
+        // f(2) = Σ cᵢ·2ⁱ  →  cₙ = (y - Σᵢ<ₙ cᵢ·2ⁱ) / 2ⁿ
+        let rest = 0;
+        for (let i = 0; i < deg; i++) rest += rc[i] * Math.pow(2, i);
+        const newCn = (y - rest) / Math.pow(2, deg);
+        const n = [...prev];
+        n[deg] = Math.max(-30, Math.min(30, Math.round(newCn * 10)));
+        return n;
+      });
+    }
+  }, []);
 
   const handleDegreeChange = (d: number) => {
     setDegree(d);
@@ -103,7 +134,7 @@ export const GanzrationaleFunktionen: React.FC = () => {
       <h1>Ganzrationale <em>Funktionen</em></h1>
       <p className="subtitle">Polynome vom Grad 1 bis 5 — Nullstellen, Symmetrie &amp; Verhalten</p>
 
-      <CoordinateSystem draw={draw} />
+      <CoordinateSystem draw={draw} dragPoints={dragPts} onDragPoint={handleDrag} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr' }}>
         <div className="ctrl">
@@ -163,7 +194,8 @@ export const GanzrationaleFunktionen: React.FC = () => {
       <div className="legend">
         <div className="legend-item"><div className="legend-dot glow-cyan" />Polynom f(x)</div>
         <div className="legend-item"><div className="legend-dot glow-red" />Nullstellen</div>
-        <div className="legend-item"><div className="legend-dot glow-lime" />y-Achsenabschnitt</div>
+        <div className="legend-item"><div className="legend-dot glow-lime" />y-Achsenabschnitt (ziehbar)</div>
+        <div className="legend-item"><div className="legend-dot glow-cyan" />Kontrollpunkt cₙ (ziehbar)</div>
       </div>
 
       <div className="explanation">

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { CoordinateSystem, Viewport } from '../../shared/CoordinateSystem';
+import { CoordinateSystem, Viewport, DragPoint } from '../../shared/CoordinateSystem';
 import { drawPoint, C, fmt } from '../../shared/canvasUtils';
 import { Math as M } from '../../shared/Math';
 import { QuadraticExercises } from './QuadraticExercises';
@@ -12,6 +12,26 @@ export const QuadratischeFunktionen: React.FC = () => {
   const a = sliderA / 10;
   const b = sliderB / 10;
   const c = sliderC / 10;
+
+  const hV = Math.abs(a) > 0.001 ? -b / (2 * a) : 0;
+  const kV = Math.abs(a) > 0.001 ? c - (b * b) / (4 * a) : c;
+
+  const dragPts: DragPoint[] = [
+    { id: 'vertex', x: hV, y: kV, color: C.orange, label: 'S' },
+    { id: 'yint', x: 0, y: c, color: C.yint },
+  ];
+
+  const handleDrag = useCallback((id: string, x: number, y: number) => {
+    if (id === 'yint') {
+      setSliderC(Math.max(-60, Math.min(60, Math.round(y * 10))));
+    } else if (id === 'vertex' && Math.abs(a) > 0.001) {
+      // h = -b/(2a) => b = -2ah,  c = k - a*h^2 - b*h
+      const newB = -2 * a * x;
+      const newC = y - a * x * x - newB * x;
+      setSliderB(Math.max(-40, Math.min(40, Math.round(newB * 10))));
+      setSliderC(Math.max(-60, Math.min(60, Math.round(newC * 10))));
+    }
+  }, [a]);
 
   const draw = useCallback((ctx: CanvasRenderingContext2D, vp: Viewport, mx: number, my: number) => {
     const { toX, toY, w, h, unitPx } = vp;
@@ -181,7 +201,7 @@ export const QuadratischeFunktionen: React.FC = () => {
       <h1>Quadratische <em>Funktionen</em></h1>
       <p className="subtitle">Parabeln, Scheitel, Nullstellen &amp; Diskriminante</p>
 
-      <CoordinateSystem draw={draw} showQuadrants />
+      <CoordinateSystem draw={draw} showQuadrants dragPoints={dragPts} onDragPoint={handleDrag} />
 
       <div className="controls" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
         <div className="ctrl">
