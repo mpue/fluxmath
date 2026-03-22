@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { getTopics } from '../topics/TopicRegistry';
+import { getCategories, getTopicsByCategory } from '../topics/TopicRegistry';
 import { FunFacts } from '../components/FunFacts';
 import { getProgress } from '../shared/ProgressStore';
 
 export const Home: React.FC = () => {
-  const topics = getTopics();
+  const categories = getCategories();
   const progress = getProgress();
 
   return (
@@ -16,24 +16,34 @@ export const Home: React.FC = () => {
 
       <FunFacts />
 
-      <div className="home-grid">
-        {topics.map(topic => {
-          const tp = progress[topic.id];
-          return (
-            <Link key={topic.id} to={`/topic/${topic.id}`} className="home-card">
-              <div className="card-icon">{topic.icon}</div>
-              <div className="card-title">{topic.title} {topic.titleAccent}</div>
-              <div className="card-desc">{topic.description}</div>
-              {tp && tp.total > 0 && (
-                <div className="card-progress">
-                  <div className="card-progress-bar" style={{ width: `${tp.bestPct}%` }} />
-                  <span className="card-progress-label">{tp.bestPct}% best</span>
-                </div>
-              )}
-            </Link>
-          );
-        })}
-      </div>
+      {categories.map(cat => {
+        const topics = getTopicsByCategory(cat);
+        return (
+          <React.Fragment key={cat}>
+            {categories.length > 1 && (
+              <h2 className="home-section-title">{cat}</h2>
+            )}
+            <div className="home-grid">
+              {topics.map(topic => {
+                const tp = progress[topic.id];
+                return (
+                  <Link key={topic.id} to={`/topic/${topic.id}`} className="home-card">
+                    <div className="card-icon">{topic.icon}</div>
+                    <div className="card-title">{topic.title} {topic.titleAccent}</div>
+                    <div className="card-desc">{topic.description}</div>
+                    {tp && tp.total > 0 && (
+                      <div className="card-progress">
+                        <div className="card-progress-bar" style={{ width: `${tp.bestPct}%` }} />
+                        <span className="card-progress-label">{tp.bestPct}% best</span>
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </React.Fragment>
+        );
+      })}
     </>
   );
 };

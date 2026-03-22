@@ -38,6 +38,9 @@ import './topics/Determinanten';
 import './topics/Eigenwerte';
 import './topics/Vektorraeume';
 
+// Tools
+import './topics/tools/Funktionsplotter';
+
 /** Plays slide_in / slide_out on route changes, click SFX on button taps */
 const SfxTriggers: React.FC = () => {
   const location = useLocation();
