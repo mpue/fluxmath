@@ -421,6 +421,16 @@ export const FraktaleExplorer: React.FC = () => {
   const [, forceRender] = useState(0);
   const kick = () => forceRender(n => n + 1);
 
+  // Animation waypoints & state
+  interface Waypoint { re: bigint; im: bigint; zoom: number; }
+  const [startWP, setStartWP] = useState<Waypoint | null>(null);
+  const [endWP, setEndWP] = useState<Waypoint | null>(null);
+  const [animSpeed, setAnimSpeed] = useState(50);  // 1-100
+  const [animPlaying, setAnimPlaying] = useState(false);
+  const [animReverse, setAnimReverse] = useState(false);
+  const animT = useRef(0);           // progress 0..1
+  const animRaf = useRef(0);
+
   // Track display size
   useEffect(() => {
     const wrap = canvasRef.current?.parentElement;
@@ -528,6 +538,46 @@ export const FraktaleExplorer: React.FC = () => {
   }, [fracArr, maxIter, palIdx, juliaC, canvasSize]);
 
   useEffect(() => { render(); }, [render]);
+
+  // Animation loop
+  useEffect(() => {
+    if (!animPlaying || !startWP || !endWP) return;
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      // Speed maps 1..100 → duration ~30s..0.5s (log scale)
+      const duration = 30 * Math.pow(0.5 / 30, animSpeed / 100);
+      const inc = dt / duration;
+      animT.current += animReverse ? -inc : inc;
+      if (animT.current >= 1) { animT.current = 1; setAnimPlaying(false); }
+      if (animT.current <= 0) { animT.current = 0; setAnimPlaying(false); }
+      const t = animT.current;
+
+      // Smooth ease (smoothstep)
+      const s = t * t * (3 - 2 * t);
+
+      // Interpolate zoom logarithmically
+      const logStart = Math.log(startWP.zoom);
+      const logEnd = Math.log(endWP.zoom);
+      zoomRef.current = Math.exp(logStart + (logEnd - logStart) * s);
+
+      // Interpolate center in float64 then convert to BigInt
+      const startRe = fpToFloat(startWP.re);
+      const startIm = fpToFloat(startWP.im);
+      const endRe = fpToFloat(endWP.re);
+      const endIm = fpToFloat(endWP.im);
+      bigCenter.current.re = fpFrom(startRe + (endRe - startRe) * s);
+      bigCenter.current.im = fpFrom(startIm + (endIm - startIm) * s);
+
+      orbitRef.current = null; // force fresh orbit
+      render();
+      kick();
+      if (animPlaying) animRaf.current = requestAnimationFrame(step);
+    };
+    animRaf.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animRaf.current);
+  }, [animPlaying, animReverse, animSpeed, startWP, endWP, render]);
 
   // Event handlers with BigInt center
   useEffect(() => {
@@ -692,6 +742,85 @@ export const FraktaleExplorer: React.FC = () => {
                 onChange={e => setJuliaC(c => ({ ...c, im: +e.target.value }))} />
             </div>
           </>
+        )}
+      </div>
+
+      {/* Animation controls */}
+      <div className="controls" style={{ gridTemplateColumns: 'auto auto auto auto' }}>
+        <div className="ctrl">
+          <div className="ctrl-header"><span className="ctrl-label">Waypoints</span></div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className={`tab-btn${startWP ? ' active' : ''}`}
+              onClick={() => {
+                setStartWP({ re: bigCenter.current.re, im: bigCenter.current.im, zoom: zoomRef.current });
+                setAnimPlaying(false);
+                animT.current = 0;
+              }}>
+              📍 Start
+            </button>
+            <button className={`tab-btn${endWP ? ' active' : ''}`}
+              onClick={() => {
+                setEndWP({ re: bigCenter.current.re, im: bigCenter.current.im, zoom: zoomRef.current });
+                setAnimPlaying(false);
+                animT.current = 1;
+              }}>
+              🏁 Ziel
+            </button>
+          </div>
+        </div>
+        <div className="ctrl">
+          <div className="ctrl-header"><span className="ctrl-label">Animation</span></div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="tab-btn"
+              disabled={!startWP || !endWP}
+              onClick={() => {
+                if (!startWP || !endWP) return;
+                if (!animPlaying) {
+                  if (animReverse && animT.current <= 0) animT.current = 1;
+                  if (!animReverse && animT.current >= 1) animT.current = 0;
+                }
+                setAnimPlaying(p => !p);
+              }}>
+              {animPlaying ? '⏸ Pause' : '▶ Play'}
+            </button>
+            <button className={`tab-btn${animReverse ? ' active' : ''}`}
+              disabled={!startWP || !endWP}
+              onClick={() => setAnimReverse(r => !r)}>
+              {animReverse ? '◀ Rückwärts' : '▶ Vorwärts'}
+            </button>
+            <button className="tab-btn"
+              disabled={!startWP || !endWP}
+              onClick={() => {
+                setAnimPlaying(false);
+                animT.current = 0;
+                if (startWP) {
+                  bigCenter.current = { re: startWP.re, im: startWP.im };
+                  zoomRef.current = startWP.zoom;
+                  orbitRef.current = null;
+                  kick(); render();
+                }
+              }}>
+              ⏮ Reset
+            </button>
+          </div>
+        </div>
+        <div className="ctrl">
+          <div className="ctrl-header">
+            <span className="ctrl-label">Geschwindigkeit</span>
+            <span className="ctrl-value">{animSpeed}%</span>
+          </div>
+          <input type="range" min={1} max={100} step={1} value={animSpeed}
+            onChange={e => setAnimSpeed(+e.target.value)} />
+        </div>
+        {(startWP || endWP) && (
+          <div className="ctrl">
+            <div className="ctrl-header"><span className="ctrl-label">Status</span></div>
+            <div style={{ fontSize: 11, fontFamily: '"Share Tech Mono", monospace', color: 'var(--cyan)' }}>
+              {startWP && <div>Start: {fmtZoom(startWP.zoom)}</div>}
+              {endWP && <div>Ziel: {fmtZoom(endWP.zoom)}</div>}
+              <div>Progress: {(animT.current * 100).toFixed(0)}%</div>
+            </div>
+          </div>
         )}
       </div>
 
