@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getCategories, getTopicsByCategory } from '../topics/TopicRegistry';
 import { FunFacts } from '../components/FunFacts';
 import { getProgress } from '../shared/ProgressStore';
+import { AchievementPanel } from '../components/AchievementPanel';
 
 export const Home: React.FC = () => {
   const categories = getCategories();
@@ -44,6 +45,9 @@ export const Home: React.FC = () => {
           </React.Fragment>
         );
       })}
+
+      <h2 className="home-section-title">Achievements</h2>
+      <AchievementPanel />
     </>
   );
 };

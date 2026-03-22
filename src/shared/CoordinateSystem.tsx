@@ -689,6 +689,31 @@ export const CoordinateSystem: React.FC<Props> = ({
       >
         RESET
       </button>
+      <button
+        onClick={() => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const link = document.createElement('a');
+          link.download = 'fluxmath-graph.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        }}
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: 80,
+          background: 'rgba(0,212,255,0.08)',
+          border: '1px solid rgba(0,212,255,0.2)',
+          color: '#00d4ff',
+          fontFamily: '"Share Tech Mono", monospace',
+          fontSize: '10px',
+          padding: '3px 10px',
+          cursor: 'pointer',
+          letterSpacing: '.08em',
+        }}
+      >
+        PNG ↓
+      </button>
     </div>
   );
 };

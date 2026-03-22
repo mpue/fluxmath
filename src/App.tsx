@@ -6,6 +6,7 @@ import { SfxPanel } from './components/SfxPanel';
 import { Home } from './pages/Home';
 import { TopicPage } from './pages/TopicPage';
 import { audioEngine } from './shared/AudioEngine';
+import { AchievementProvider } from './components/AchievementPanel';
 
 // Register all topics — add new imports here to extend the app
 import './topics/LineareFunktionen';
@@ -41,6 +42,9 @@ import './topics/Vektorraeume';
 // Tools
 import './topics/tools/Funktionsplotter';
 import './topics/tools/MatrixRechner';
+import './topics/tools/Gleichungsloeser';
+import './topics/tools/KurvendiskussionTool';
+import './topics/tools/FraktaleExplorer';
 
 /** Plays slide_in / slide_out on route changes, click SFX on button taps */
 const SfxTriggers: React.FC = () => {
@@ -81,6 +85,7 @@ const SfxTriggers: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
+      <AchievementProvider>
       <SfxTriggers />
       <div className="bg-grid" />
       <div className="scan-beam" />
@@ -105,6 +110,7 @@ export const App: React.FC = () => {
 
       <MusicPlayer />
       <SfxPanel />
+      </AchievementProvider>
     </BrowserRouter>
   );
 };
