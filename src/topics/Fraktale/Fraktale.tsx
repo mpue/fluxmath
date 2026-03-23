@@ -172,6 +172,7 @@ const MandelbrotVis: React.FC = () => {
   const [iter, setIter] = useState(80);
   const viewRef = useRef({ cx: -0.5, cy: 0, zoom: 1 });
   const dragRef = useRef({ dragging: false, sx: 0, sy: 0, scx: 0, scy: 0 });
+  const animRef = useRef<number | null>(null);
   const [hoverInfo, setHoverInfo] = useState('');
   const [, forceRender] = useState(0);
 
@@ -244,6 +245,7 @@ const MandelbrotVis: React.FC = () => {
       render();
     };
     const onDown = (e: MouseEvent) => {
+      if (e.button === 2) return; // right button handled separately
       dragRef.current = { dragging: true, sx: e.clientX, sy: e.clientY, scx: viewRef.current.cx, scy: viewRef.current.cy };
     };
     const onMove = (e: MouseEvent) => {
@@ -271,21 +273,54 @@ const MandelbrotVis: React.FC = () => {
       render();
     };
     const onUp = () => { dragRef.current.dragging = false; };
-    const onDbl = () => { viewRef.current = { cx: -0.5, cy: 0, zoom: 1 }; forceRender(n => n + 1); render(); };
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const r = rect();
+      const mx = (e.clientX - r.left) / r.width;
+      const my = (e.clientY - r.top) / r.height;
+      const v = viewRef.current;
+      const aspect = cvs.width / cvs.height;
+      const targetCx = v.cx + (mx - 0.5) * (3 / v.zoom) * aspect;
+      const targetCy = v.cy + (my - 0.5) * (3 / v.zoom);
+      const targetZoom = v.zoom * 4;
+      const startCx = v.cx, startCy = v.cy, startZoom = v.zoom;
+      const duration = 600;
+      const startTime = performance.now();
+
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+
+      const step = (now: number) => {
+        const t = Math.min((now - startTime) / duration, 1);
+        const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        v.zoom = startZoom * Math.pow(targetZoom / startZoom, ease);
+        v.cx = startCx + (targetCx - startCx) * ease;
+        v.cy = startCy + (targetCy - startCy) * ease;
+        forceRender(n => n + 1);
+        render();
+        if (t < 1) {
+          animRef.current = requestAnimationFrame(step);
+        } else {
+          animRef.current = null;
+        }
+      };
+      animRef.current = requestAnimationFrame(step);
+    };
 
     cvs.addEventListener('wheel', onWheel, { passive: false });
     cvs.addEventListener('mousedown', onDown);
     cvs.addEventListener('mousemove', onMove);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-    cvs.addEventListener('dblclick', onDbl);
+    cvs.addEventListener('contextmenu', onContextMenu);
     return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
       cvs.removeEventListener('wheel', onWheel);
       cvs.removeEventListener('mousedown', onDown);
       cvs.removeEventListener('mousemove', onMove);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
-      cvs.removeEventListener('dblclick', onDbl);
+      cvs.removeEventListener('contextmenu', onContextMenu);
     };
   }, [render]);
 

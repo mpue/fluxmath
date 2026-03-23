@@ -425,11 +425,16 @@ export const FraktaleExplorer: React.FC = () => {
   interface Waypoint { re: bigint; im: bigint; zoom: number; }
   const [startWP, setStartWP] = useState<Waypoint | null>(null);
   const [endWP, setEndWP] = useState<Waypoint | null>(null);
-  const [animSpeed, setAnimSpeed] = useState(50);  // 1-100
-  const [animPlaying, setAnimPlaying] = useState(false);
+  const [animSpeed, setAnimSpeed] = useState(30); // FPS playback
+  const [animFrameCount, setAnimFrameCount] = useState(120);
   const [animReverse, setAnimReverse] = useState(false);
-  const animT = useRef(0);           // progress 0..1
-  const animRaf = useRef(0);
+
+  // Offline render state
+  const [renderProgress, setRenderProgress] = useState(-1); // -1=idle, 0..100=rendering
+  const framesRef = useRef<ImageBitmap[]>([]);
+  const [playIdx, setPlayIdx] = useState(-1); // -1=not playing
+  const playRaf = useRef(0);
+  const renderAbort = useRef(false);
 
   // Track display size
   useEffect(() => {
@@ -539,45 +544,127 @@ export const FraktaleExplorer: React.FC = () => {
 
   useEffect(() => { render(); }, [render]);
 
-  // Animation loop
+  // Offline render: pre-compute all frames
+  const renderOffline = useCallback(async () => {
+    if (!startWP || !endWP || !glRef.current) return;
+    const g = glRef.current;
+    const { gl, uniforms } = g;
+    const cvs = canvasRef.current!;
+    const w = cvs.width, h = cvs.height;
+    const isMandel = fracArr === 'mandelbrot';
+    const total = animFrameCount;
+
+    // Free old frames
+    framesRef.current.forEach(f => f.close());
+    framesRef.current = [];
+    setPlayIdx(-1);
+    renderAbort.current = false;
+    setRenderProgress(0);
+
+    const logZoomA = Math.log(startWP.zoom);
+    const logZoomB = Math.log(endWP.zoom);
+
+    for (let f = 0; f < total; f++) {
+      if (renderAbort.current) { setRenderProgress(-1); return; }
+
+      const t = total <= 1 ? 0 : f / (total - 1);
+      const s = t * t * (3 - 2 * t); // smoothstep
+
+      const zoom = Math.exp(logZoomA + (logZoomB - logZoomA) * s);
+
+      // Interpolate center in BigInt precision to avoid float64 collapse at deep zoom
+      // lerp(a, b, s) = a + (b - a) * s, where s is represented as fixed-point
+      const sFP = fpFrom(s);
+      const cRe = fpAdd(startWP.re, fpMul(fpSub(endWP.re, startWP.re), sFP));
+      const cIm = fpAdd(startWP.im, fpMul(fpSub(endWP.im, startWP.im), sFP));
+
+      const pixelSpan = 3 / zoom;
+      const aspect = w / h;
+      const useDirectMode = zoom < DIRECT_THRESHOLD;
+
+      gl.viewport(0, 0, w, h);
+
+      if (useDirectMode) {
+        gl.uniform1i(uniforms.mode, 0);
+        gl.uniform2f(uniforms.center, fpToFloat(cRe), fpToFloat(cIm));
+        gl.uniform2f(uniforms.viewOffset, 0, 0);
+      } else {
+        gl.uniform1i(uniforms.mode, 1);
+        const orbit = computeRefOrbit(
+          cRe, cIm, maxIter, isMandel,
+          isMandel ? undefined : fpFrom(juliaC.re),
+          isMandel ? undefined : fpFrom(juliaC.im),
+        );
+        uploadOrbit(g, orbit);
+        gl.uniform2f(uniforms.center, fpToFloat(cRe), fpToFloat(cIm));
+        gl.uniform2f(uniforms.viewOffset, 0, 0);
+        gl.uniform2f(uniforms.orbitSize, g.orbitTexW, g.orbitTexH);
+        gl.uniform1i(uniforms.refLen, orbit.len);
+      }
+
+      gl.uniform2f(uniforms.resolution, w, h);
+      gl.uniform1f(uniforms.pixelSpan, pixelSpan);
+      gl.uniform1f(uniforms.aspect, aspect);
+      gl.uniform1i(uniforms.maxIter, maxIter);
+      gl.uniform1i(uniforms.fractal, isMandel ? 0 : 1);
+      gl.uniform1i(uniforms.palette, palIdx);
+      gl.uniform2f(uniforms.juliaC, juliaC.re, juliaC.im);
+
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.finish(); // ensure GPU is done
+
+      // Capture frame
+      const bmp = await createImageBitmap(cvs);
+      framesRef.current.push(bmp);
+
+      setRenderProgress(Math.round(((f + 1) / total) * 100));
+
+      // Yield to UI thread every frame
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    setRenderProgress(-1);
+  }, [startWP, endWP, animFrameCount, fracArr, maxIter, palIdx, juliaC, canvasSize]);
+
+  // Playback loop
   useEffect(() => {
-    if (!animPlaying || !startWP || !endWP) return;
+    if (playIdx < 0) return;
+    const frames = framesRef.current;
+    if (!frames.length) { setPlayIdx(-1); return; }
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const ctx2d = cvs.getContext('2d');
+    // Can't get 2d context if webgl is active — draw via HUD overlay instead
+    const hud = hudRef.current;
+    if (!hud) return;
+    const hCtx = hud.getContext('2d');
+    if (!hCtx) return;
+
+    const interval = 1000 / animSpeed;
+    let idx = animReverse ? frames.length - 1 : 0;
     let last = performance.now();
+
     const step = (now: number) => {
-      const dt = (now - last) / 1000;
-      last = now;
-      // Speed maps 1..100 → duration ~30s..0.5s (log scale)
-      const duration = 30 * Math.pow(0.5 / 30, animSpeed / 100);
-      const inc = dt / duration;
-      animT.current += animReverse ? -inc : inc;
-      if (animT.current >= 1) { animT.current = 1; setAnimPlaying(false); }
-      if (animT.current <= 0) { animT.current = 0; setAnimPlaying(false); }
-      const t = animT.current;
+      if (now - last >= interval) {
+        last = now;
+        hCtx.clearRect(0, 0, hud.width, hud.height);
+        hCtx.drawImage(frames[idx], 0, 0, hud.width, hud.height);
+        // HUD bar
+        hCtx.fillStyle = 'rgba(0,10,20,0.6)';
+        hCtx.fillRect(0, 0, hud.width, 24);
+        hCtx.font = '11px "Share Tech Mono", monospace';
+        hCtx.fillStyle = '#00d4ff';
+        hCtx.textBaseline = 'middle';
+        hCtx.fillText(`▶ Frame ${idx + 1}/${frames.length}  |  ${animSpeed} FPS`, 8, 12);
 
-      // Smooth ease (smoothstep)
-      const s = t * t * (3 - 2 * t);
-
-      // Interpolate zoom logarithmically
-      const logStart = Math.log(startWP.zoom);
-      const logEnd = Math.log(endWP.zoom);
-      zoomRef.current = Math.exp(logStart + (logEnd - logStart) * s);
-
-      // Interpolate center in float64 then convert to BigInt
-      const startRe = fpToFloat(startWP.re);
-      const startIm = fpToFloat(startWP.im);
-      const endRe = fpToFloat(endWP.re);
-      const endIm = fpToFloat(endWP.im);
-      bigCenter.current.re = fpFrom(startRe + (endRe - startRe) * s);
-      bigCenter.current.im = fpFrom(startIm + (endIm - startIm) * s);
-
-      orbitRef.current = null; // force fresh orbit
-      render();
-      kick();
-      if (animPlaying) animRaf.current = requestAnimationFrame(step);
+        if (animReverse) { idx--; if (idx < 0) { setPlayIdx(-1); return; } }
+        else { idx++; if (idx >= frames.length) { setPlayIdx(-1); return; } }
+      }
+      playRaf.current = requestAnimationFrame(step);
     };
-    animRaf.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(animRaf.current);
-  }, [animPlaying, animReverse, animSpeed, startWP, endWP, render]);
+    playRaf.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(playRaf.current);
+  }, [playIdx, animSpeed, animReverse]);
 
   // Event handlers with BigInt center
   useEffect(() => {
@@ -746,79 +833,89 @@ export const FraktaleExplorer: React.FC = () => {
       </div>
 
       {/* Animation controls */}
-      <div className="controls" style={{ gridTemplateColumns: 'auto auto auto auto' }}>
+      <div className="controls" style={{ gridTemplateColumns: 'auto auto auto auto auto' }}>
         <div className="ctrl">
           <div className="ctrl-header"><span className="ctrl-label">Waypoints</span></div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button className={`tab-btn${startWP ? ' active' : ''}`}
+              disabled={renderProgress >= 0}
               onClick={() => {
                 setStartWP({ re: bigCenter.current.re, im: bigCenter.current.im, zoom: zoomRef.current });
-                setAnimPlaying(false);
-                animT.current = 0;
+                framesRef.current.forEach(f => f.close());
+                framesRef.current = [];
+                setPlayIdx(-1);
               }}>
               📍 Start
             </button>
             <button className={`tab-btn${endWP ? ' active' : ''}`}
+              disabled={renderProgress >= 0}
               onClick={() => {
                 setEndWP({ re: bigCenter.current.re, im: bigCenter.current.im, zoom: zoomRef.current });
-                setAnimPlaying(false);
-                animT.current = 1;
+                framesRef.current.forEach(f => f.close());
+                framesRef.current = [];
+                setPlayIdx(-1);
               }}>
               🏁 Ziel
             </button>
           </div>
         </div>
         <div className="ctrl">
-          <div className="ctrl-header"><span className="ctrl-label">Animation</span></div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="tab-btn"
-              disabled={!startWP || !endWP}
-              onClick={() => {
-                if (!startWP || !endWP) return;
-                if (!animPlaying) {
-                  if (animReverse && animT.current <= 0) animT.current = 1;
-                  if (!animReverse && animT.current >= 1) animT.current = 0;
-                }
-                setAnimPlaying(p => !p);
-              }}>
-              {animPlaying ? '⏸ Pause' : '▶ Play'}
-            </button>
-            <button className={`tab-btn${animReverse ? ' active' : ''}`}
-              disabled={!startWP || !endWP}
-              onClick={() => setAnimReverse(r => !r)}>
-              {animReverse ? '◀ Rückwärts' : '▶ Vorwärts'}
-            </button>
-            <button className="tab-btn"
-              disabled={!startWP || !endWP}
-              onClick={() => {
-                setAnimPlaying(false);
-                animT.current = 0;
-                if (startWP) {
-                  bigCenter.current = { re: startWP.re, im: startWP.im };
-                  zoomRef.current = startWP.zoom;
-                  orbitRef.current = null;
-                  kick(); render();
-                }
-              }}>
-              ⏮ Reset
-            </button>
+          <div className="ctrl-header">
+            <span className="ctrl-label">Frames</span>
+            <span className="ctrl-value">{animFrameCount}</span>
           </div>
+          <input type="range" min={30} max={600} step={10} value={animFrameCount}
+            disabled={renderProgress >= 0}
+            onChange={e => setAnimFrameCount(+e.target.value)} />
         </div>
         <div className="ctrl">
           <div className="ctrl-header">
-            <span className="ctrl-label">Geschwindigkeit</span>
-            <span className="ctrl-value">{animSpeed}%</span>
+            <span className="ctrl-label">FPS</span>
+            <span className="ctrl-value">{animSpeed}</span>
           </div>
-          <input type="range" min={1} max={100} step={1} value={animSpeed}
+          <input type="range" min={5} max={60} step={1} value={animSpeed}
             onChange={e => setAnimSpeed(+e.target.value)} />
         </div>
-        {(startWP || endWP) && (
+        <div className="ctrl">
+          <div className="ctrl-header"><span className="ctrl-label">Rendern / Abspielen</span></div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {renderProgress >= 0 ? (
+              <button className="tab-btn active" onClick={() => { renderAbort.current = true; }}>
+                ⏹ Abbrechen ({renderProgress}%)
+              </button>
+            ) : (
+              <button className="tab-btn"
+                disabled={!startWP || !endWP}
+                onClick={renderOffline}>
+                🎬 Rendern
+              </button>
+            )}
+            <button className="tab-btn"
+              disabled={framesRef.current.length === 0 || renderProgress >= 0}
+              onClick={() => setPlayIdx(p => p >= 0 ? -1 : 0)}>
+              {playIdx >= 0 ? '⏸ Stop' : '▶ Play'}
+            </button>
+            <button className={`tab-btn${animReverse ? ' active' : ''}`}
+              disabled={framesRef.current.length === 0}
+              onClick={() => setAnimReverse(r => !r)}>
+              {animReverse ? '◀ Rückwärts' : '▶ Vorwärts'}
+            </button>
+          </div>
+        </div>
+        {(startWP || endWP || framesRef.current.length > 0) && (
           <div className="ctrl">
             <div className="ctrl-header"><span className="ctrl-label">Status</span></div>
             <div style={{ fontSize: 11, fontFamily: '"Share Tech Mono", monospace', color: 'var(--cyan)' }}>
               {startWP && <div>Start: {fmtZoom(startWP.zoom)}</div>}
               {endWP && <div>Ziel: {fmtZoom(endWP.zoom)}</div>}
-              <div>Progress: {(animT.current * 100).toFixed(0)}%</div>
+              {framesRef.current.length > 0 && <div>{framesRef.current.length} Frames bereit</div>}
+              {renderProgress >= 0 && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ background: 'rgba(0,212,255,0.15)', borderRadius: 3, height: 6, width: '100%' }}>
+                    <div style={{ background: 'var(--cyan)', borderRadius: 3, height: 6, width: `${renderProgress}%`, transition: 'width 0.2s' }} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
