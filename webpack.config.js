@@ -45,6 +45,7 @@ module.exports = (env, argv) => {
       new CopyWebpackPlugin({
         patterns: [
           { from: 'public/*.mp3', to: '[name][ext]' },
+          { from: 'public/robots.txt', to: '[name][ext]' },
         ],
       }),
     ],
