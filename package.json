@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "description": "Interaktive Mathematik-Lernanwendung",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "start": "webpack serve --mode development",
     "build": "webpack --mode production",
+    "build:electron": "webpack --mode production --env electron",
+    "electron:dev": "webpack --mode development --env electron && electron .",
+    "electron:dist": "webpack --mode production --env electron && electron-builder",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,6 +24,8 @@
     "@types/react-dom": "^18.3.1",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.2",
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
     "html-webpack-plugin": "^5.6.3",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.1",
@@ -27,5 +33,32 @@
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.0"
+  },
+  "build": {
+    "appId": "com.fluxmath.app",
+    "productName": "FluxMath",
+    "directories": {
+      "output": "electron-dist"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "electron/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "electron/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "electron/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

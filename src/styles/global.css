@@ -1147,3 +1147,168 @@ button:active, [role="button"]:active {
 @media (min-width: 1600px) {
   body { padding: 2.5rem 4rem; }
 }
+
+/* ══════════════════════════════════════════
+   Formelsammlung
+   ══════════════════════════════════════════ */
+
+.fs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid rgba(0,212,255,.12);
+  margin-bottom: 18px;
+  animation: fadeSlideUp .4s cubic-bezier(.22,1,.36,1) both;
+}
+
+.fs-tab-icon {
+  margin-right: 5px;
+  font-size: 13px;
+}
+
+.fs-search {
+  position: relative;
+  margin-bottom: 22px;
+  animation: fadeSlideUp .4s cubic-bezier(.22,1,.36,1) both;
+}
+
+.fs-search-input {
+  width: 100%;
+  padding: 10px 40px 10px 14px;
+  border: 1px solid rgba(0,212,255,.15);
+  border-radius: 6px;
+  background: rgba(0,212,255,.04);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  letter-spacing: .04em;
+  outline: none;
+  transition: border-color .25s, box-shadow .25s;
+  box-sizing: border-box;
+}
+
+.fs-search-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0,212,255,.15);
+}
+
+.fs-search-input::placeholder {
+  color: var(--muted);
+  opacity: .7;
+}
+
+.fs-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  line-height: 1;
+}
+.fs-search-clear:hover { color: var(--cyan); }
+
+.fs-section {
+  margin-bottom: 28px;
+  animation: fadeSlideUp .4s cubic-bezier(.22,1,.36,1) both;
+}
+
+.fs-section-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--cyan);
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0,212,255,.1);
+  text-shadow: 0 0 14px rgba(0,212,255,.3);
+}
+
+.fs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.fs-card {
+  background: rgba(0,20,26,.65);
+  border: 1px solid rgba(0,212,255,.08);
+  border-radius: 8px;
+  padding: 14px 16px;
+  transition: border-color .3s, box-shadow .3s, background .3s;
+}
+
+.fs-card:hover {
+  border-color: rgba(0,212,255,.25);
+  box-shadow: 0 0 18px rgba(0,212,255,.06);
+  background: rgba(0,20,26,.85);
+}
+
+.fs-card-name {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.fs-card-formula {
+  margin-bottom: 4px;
+  overflow-x: auto;
+}
+
+.fs-card-formula .formula .katex {
+  font-size: 1.05em;
+  color: var(--cyan);
+}
+
+.fs-card-formula .formula .katex .mord,
+.fs-card-formula .formula .katex .mbin,
+.fs-card-formula .formula .katex .mrel,
+.fs-card-formula .formula .katex .mopen,
+.fs-card-formula .formula .katex .mclose,
+.fs-card-formula .formula .katex .mpunct,
+.fs-card-formula .formula .katex .mop { color: var(--cyan); }
+
+.fs-card-formula .formula .katex .mfrac .frac-line {
+  border-bottom-color: var(--cyan);
+}
+
+.fs-card-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.fs-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  letter-spacing: .04em;
+}
+
+@media (max-width: 600px) {
+  .fs-grid {
+    grid-template-columns: 1fr;
+  }
+  .fs-tabs {
+    gap: 0;
+  }
+  .fs-tabs .tab-btn {
+    font-size: 10px;
+    padding: 8px 8px;
+  }
+  .fs-tab-icon {
+    display: none;
+  }
+}

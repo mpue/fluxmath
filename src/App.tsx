@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { TopicNav } from './components/TopicNav';
 import { MusicPlayer } from './components/MusicPlayer';
 import { SfxPanel } from './components/SfxPanel';
@@ -46,6 +46,7 @@ import './topics/tools/MatrixRechner';
 import './topics/tools/Gleichungsloeser';
 import './topics/tools/KurvendiskussionTool';
 import './topics/tools/FraktaleExplorer';
+import './topics/tools/Formelsammlung';
 
 /** Plays slide_in / slide_out on route changes, click SFX on button taps */
 const SfxTriggers: React.FC = () => {
@@ -83,9 +84,11 @@ const SfxTriggers: React.FC = () => {
   return null;
 };
 
+const Router = process.env.IS_ELECTRON ? HashRouter : BrowserRouter;
+
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
+    <Router>
       <AchievementProvider>
       <SfxTriggers />
       <div className="bg-grid" />
@@ -112,6 +115,6 @@ export const App: React.FC = () => {
       <MusicPlayer />
       <SfxPanel />
       </AchievementProvider>
-    </BrowserRouter>
+    </Router>
   );
 };

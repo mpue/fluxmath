@@ -1,5 +1,7 @@
 type SfxKey = 'in' | 'out' | 'click';
 
+const BASE = process.env.IS_ELECTRON ? './' : '/';
+
 type AudioListener = () => void;
 
 interface AudioState {
@@ -94,9 +96,9 @@ class AudioEngine {
   }
 
   private autoLoadMusic() {
-    const t = new Audio('/music.mp3');
+    const t = new Audio(`${BASE}music.mp3`);
     t.addEventListener('canplaythrough', () => {
-      this.loadAudio('/music.mp3', 'music');
+      this.loadAudio(`${BASE}music.mp3`, 'music');
       if (this.pendingAutoplay) {
         this.pendingAutoplay = false;
         this.tryAutoplay();
@@ -186,7 +188,7 @@ class AudioEngine {
 
   // SFX
   private autoLoadSfx() {
-    const map: Record<SfxKey, string> = { in: '/slide_in.mp3', out: '/slide_out.mp3', click: '/click.mp3' };
+    const map: Record<SfxKey, string> = { in: `${BASE}slide_in.mp3`, out: `${BASE}slide_out.mp3`, click: `${BASE}click.mp3` };
     (Object.keys(map) as SfxKey[]).forEach(k => {
       this.sfxLoad(k, map[k], map[k]);
     });
