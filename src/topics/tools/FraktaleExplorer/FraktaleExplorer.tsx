@@ -96,6 +96,35 @@ uniform int   u_mode;        // 0 = direct, 1 = perturbation
 uniform vec2  u_center;      // float32 center (direct mode)
 uniform vec2  u_juliaC;      // Julia c for direct mode
 uniform vec2  u_viewOffset;  // shift from ref orbit center
+uniform float u_hueShift;    // 0..360
+uniform float u_saturation;  // 0..2
+uniform float u_brightness;  // 0..2
+uniform float u_contrast;    // 0..3
+
+vec3 rgb2hsv(vec3 c) {
+  vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+  float d = q.x - min(q.w, q.y);
+  float e = 1.0e-10;
+  return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c) {
+  vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+vec3 applyColorAdjust(vec3 col) {
+  vec3 hsv = rgb2hsv(col);
+  hsv.x = fract(hsv.x + u_hueShift / 360.0);
+  hsv.y = clamp(hsv.y * u_saturation, 0.0, 1.0);
+  hsv.z = clamp(hsv.z * u_brightness, 0.0, 1.0);
+  vec3 rgb = hsv2rgb(hsv);
+  rgb = clamp((rgb - 0.5) * u_contrast + 0.5, 0.0, 1.0);
+  return rgb;
+}
 
 vec3 readOrbit(int n) {
   float idx = float(n);
@@ -170,11 +199,11 @@ void main() {
         float nu = log(log_zn / log(2.0)) / log(2.0);
         float s = float(i) + 1.0 - nu;
         float t = clamp(s / float(u_maxIter) * 4.0, 0.0, 1.0);
-        gl_FragColor = vec4(getPalette(t), 1.0);
+        gl_FragColor = vec4(applyColorAdjust(getPalette(t)), 1.0);
         return;
       }
     }
-    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    gl_FragColor = vec4(applyColorAdjust(vec3(0.0)), 1.0);
     return;
   }
 
@@ -214,7 +243,7 @@ void main() {
       float nu = log(log_zn / log(2.0)) / log(2.0);
       float s = float(i) + 1.0 - nu;
       float t = clamp(s / float(u_maxIter) * 4.0, 0.0, 1.0);
-      gl_FragColor = vec4(getPalette(t), 1.0);
+      gl_FragColor = vec4(applyColorAdjust(getPalette(t)), 1.0);
       return;
     }
 
@@ -271,7 +300,7 @@ void main() {
         float nu = log(log_zn / log(2.0)) / log(2.0);
         float s = float(iter) + 1.0 - nu;
         float t = clamp(s / float(u_maxIter) * 4.0, 0.0, 1.0);
-        gl_FragColor = vec4(getPalette(t), 1.0);
+        gl_FragColor = vec4(applyColorAdjust(getPalette(t)), 1.0);
         return;
       }
       float nr = zr*zr - zi*zi + pixel_cr;
@@ -281,7 +310,7 @@ void main() {
     }
   }
 
-  gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_FragColor = vec4(applyColorAdjust(vec3(0.0)), 1.0);
 }
 `;
 
@@ -363,6 +392,10 @@ function initGL(canvas: HTMLCanvasElement): GLCtx | null {
       center:     gl.getUniformLocation(prog, 'u_center'),
       juliaC:     gl.getUniformLocation(prog, 'u_juliaC'),
       viewOffset: gl.getUniformLocation(prog, 'u_viewOffset'),
+      hueShift:   gl.getUniformLocation(prog, 'u_hueShift'),
+      saturation: gl.getUniformLocation(prog, 'u_saturation'),
+      brightness: gl.getUniformLocation(prog, 'u_brightness'),
+      contrast:   gl.getUniformLocation(prog, 'u_contrast'),
     },
   };
 }
@@ -406,6 +439,10 @@ export const FraktaleExplorer: React.FC = () => {
   const [palIdx, setPalIdx] = useState(0);
   const [juliaC, setJuliaC] = useState({ re: -0.7, im: 0.27015 });
   const [qualityScale, setQualityScale] = useState(100);
+  const [hueShift, setHueShift] = useState(0);
+  const [saturation, setSaturation] = useState(100);
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
   const [gpuOk, setGpuOk] = useState(true);
   const [canvasSize, setCanvasSize] = useState({ w: 900, h: 600 });
 
@@ -516,6 +553,10 @@ export const FraktaleExplorer: React.FC = () => {
     gl.uniform1i(uniforms.refLen, orbitRef.current ? orbitRef.current.len : 0);
     gl.uniform1i(uniforms.fractal, isMandel ? 0 : 1);
     gl.uniform1i(uniforms.palette, palIdx);
+    gl.uniform1f(uniforms.hueShift, hueShift);
+    gl.uniform1f(uniforms.saturation, saturation / 100);
+    gl.uniform1f(uniforms.brightness, brightness / 100);
+    gl.uniform1f(uniforms.contrast, contrast / 100 * 2);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -540,7 +581,7 @@ export const FraktaleExplorer: React.FC = () => {
         );
       }
     }
-  }, [fracArr, maxIter, palIdx, juliaC, canvasSize]);
+  }, [fracArr, maxIter, palIdx, juliaC, canvasSize, hueShift, saturation, brightness, contrast]);
 
   useEffect(() => { render(); }, [render]);
 
@@ -790,7 +831,7 @@ export const FraktaleExplorer: React.FC = () => {
             <span className="ctrl-label">Iterationen</span>
             <span className="ctrl-value">{maxIter}</span>
           </div>
-          <input type="range" min={30} max={10000} step={10} value={maxIter} onChange={e => setMaxIter(+e.target.value)} />
+          <input type="range" min={30} max={50000} step={10} value={maxIter} onChange={e => setMaxIter(+e.target.value)} />
         </div>
         <div className="ctrl">
           <div className="ctrl-header">
@@ -809,6 +850,34 @@ export const FraktaleExplorer: React.FC = () => {
               </button>
             ))}
           </div>
+        </div>
+        <div className="ctrl">
+          <div className="ctrl-header">
+            <span className="ctrl-label">Farbton</span>
+            <span className="ctrl-value">{hueShift}°</span>
+          </div>
+          <input type="range" min={0} max={360} step={1} value={hueShift} onChange={e => setHueShift(+e.target.value)} />
+        </div>
+        <div className="ctrl">
+          <div className="ctrl-header">
+            <span className="ctrl-label">Sättigung</span>
+            <span className="ctrl-value">{saturation}%</span>
+          </div>
+          <input type="range" min={0} max={200} step={1} value={saturation} onChange={e => setSaturation(+e.target.value)} />
+        </div>
+        <div className="ctrl">
+          <div className="ctrl-header">
+            <span className="ctrl-label">Helligkeit</span>
+            <span className="ctrl-value">{brightness}%</span>
+          </div>
+          <input type="range" min={0} max={200} step={1} value={brightness} onChange={e => setBrightness(+e.target.value)} />
+        </div>
+        <div className="ctrl">
+          <div className="ctrl-header">
+            <span className="ctrl-label">Kontrast</span>
+            <span className="ctrl-value">{contrast}%</span>
+          </div>
+          <input type="range" min={0} max={200} step={1} value={contrast} onChange={e => setContrast(+e.target.value)} />
         </div>
         {fracArr === 'julia' && (
           <>
