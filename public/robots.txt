@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://fluxmath.de/sitemap.xml
+Sitemap: https://fluxmath.cflux.org/sitemap.xml
