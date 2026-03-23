@@ -93,6 +93,7 @@ uniform int   u_refLen;       // length of reference orbit
 uniform int   u_fractal;      // 0 = mandelbrot, 1 = julia
 uniform int   u_palette;
 uniform int   u_mode;        // 0 = direct, 1 = perturbation
+uniform int   u_formula;     // 0 = standard, 1 = burning ship, 2 = tricorn, 3 = celtic
 uniform vec2  u_center;      // float32 center (direct mode)
 uniform vec2  u_juliaC;      // Julia c for direct mode
 uniform vec2  u_viewOffset;  // shift from ref orbit center
@@ -190,8 +191,21 @@ void main() {
     }
     for (int i = 0; i < 10000; i++) {
       if (i >= u_maxIter) break;
-      float nr = zr*zr - zi*zi + cr;
-      float ni = 2.0*zr*zi + ci;
+      float nr, ni;
+      if (u_formula == 1) {
+        float azr = abs(zr); float azi = abs(zi);
+        nr = azr*azr - azi*azi + cr;
+        ni = 2.0*azr*azi + ci;
+      } else if (u_formula == 2) {
+        nr = zr*zr - zi*zi + cr;
+        ni = -(2.0*zr*zi) + ci;
+      } else if (u_formula == 3) {
+        nr = abs(zr*zr - zi*zi) + cr;
+        ni = 2.0*zr*zi + ci;
+      } else {
+        nr = zr*zr - zi*zi + cr;
+        ni = 2.0*zr*zi + ci;
+      }
       zr = nr; zi = ni;
       float m2 = zr*zr + zi*zi;
       if (m2 > 256.0) {
@@ -396,6 +410,7 @@ function initGL(canvas: HTMLCanvasElement): GLCtx | null {
       saturation: gl.getUniformLocation(prog, 'u_saturation'),
       brightness: gl.getUniformLocation(prog, 'u_brightness'),
       contrast:   gl.getUniformLocation(prog, 'u_contrast'),
+      formula:    gl.getUniformLocation(prog, 'u_formula'),
     },
   };
 }
@@ -421,9 +436,215 @@ function uploadOrbit(ctx: GLCtx, orbit: RefOrbit) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   Buddhabrot CPU renderer
+   ═══════════════════════════════════════════════════════ */
+function buddhabrotPalette(t: number, pal: number): [number, number, number] {
+  t = Math.max(0, Math.min(1, t));
+  switch (pal) {
+    case 0: {
+      const r = 9*(1-t)*t*t*t, g = 15*(1-t)*(1-t)*t*t, b = 8.5*(1-t)*(1-t)*(1-t)*t;
+      return [Math.min(255,Math.floor(r*255)), Math.min(255,Math.floor(g*255)+40), Math.min(255,Math.floor(b*255)+80)];
+    }
+    case 1: return [Math.min(255,Math.floor(t*4*255)), Math.min(255,Math.floor(t*t*2*255)), Math.floor(t*0.235*255)];
+    case 2: {
+      const h = t*6, x = 1-Math.abs(h%2-1);
+      let r=0,g=0,b=0;
+      if(h<1){r=1;g=x;}else if(h<2){r=x;g=1;}else if(h<3){g=1;b=x;}
+      else if(h<4){g=x;b=1;}else if(h<5){r=x;b=1;}else{r=1;b=x;}
+      return [Math.floor(r*255),Math.floor(g*255),Math.floor(b*255)];
+    }
+    case 3: return [Math.floor(t*0.118*255), Math.floor((0.314+t*0.686)*255), Math.floor((0.471+t*0.529)*255)];
+    case 4: { const v = Math.floor(t*255); return [v,v,v]; }
+    case 5: {
+      const a=[0.001,0,0.014],b2=[0.847,0.058,0.381],c=[0.986,0.635,0.033],d=[0.988,1,0.644];
+      let rgb: number[];
+      if(t<0.33)rgb=a.map((v,i)=>v+(b2[i]-v)*t/0.33);
+      else if(t<0.66)rgb=b2.map((v,i)=>v+(c[i]-v)*(t-0.33)/0.33);
+      else rgb=c.map((v,i)=>v+(d[i]-v)*(t-0.66)/0.34);
+      return rgb.map(v=>Math.floor(Math.min(1,v)*255)) as [number,number,number];
+    }
+    default: {
+      const a=[0.05,0,0.15],b2=[0,0.6,0.4],c=[0.1,1,0.5],d=[0.9,1,0.8];
+      let rgb: number[];
+      if(t<0.33)rgb=a.map((v,i)=>v+(b2[i]-v)*t/0.33);
+      else if(t<0.66)rgb=b2.map((v,i)=>v+(c[i]-v)*(t-0.33)/0.33);
+      else rgb=c.map((v,i)=>v+(d[i]-v)*(t-0.66)/0.34);
+      return rgb.map(v=>Math.floor(Math.min(1,v)*255)) as [number,number,number];
+    }
+  }
+}
+
+const BuddhabrotVis: React.FC<{
+  maxIter: number; palIdx: number; canvasSize: { w: number; h: number };
+}> = ({ maxIter, palIdx, canvasSize }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const densityRef = useRef<Float32Array | null>(null);
+  const [totalSamples, setTotalSamples] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const abortRef = useRef(false);
+  const rafRef = useRef(0);
+
+  const w = canvasSize.w, h = canvasSize.h;
+  const aspect = w / h;
+  const span = 3.5;
+  const cx = -0.5, cy = 0;
+  const halfSpanX = span * aspect / 2;
+  const halfSpanY = span / 2;
+  const xMin = cx - halfSpanX;
+  const yMax = cy + halfSpanY;
+  const totalX = span * aspect;
+  const totalY = span;
+
+  useEffect(() => {
+    densityRef.current = new Float32Array(w * h);
+    setTotalSamples(0);
+    setIsRunning(false);
+    abortRef.current = true;
+  }, [w, h]);
+
+  const renderDensity = useCallback(() => {
+    const cvs = canvasRef.current;
+    if (!cvs || !densityRef.current) return;
+    const ctx2d = cvs.getContext('2d');
+    if (!ctx2d) return;
+    const density = densityRef.current;
+    const imgData = ctx2d.createImageData(w, h);
+    let maxD = 0;
+    for (let i = 0; i < density.length; i++) if (density[i] > maxD) maxD = density[i];
+    if (maxD === 0) { ctx2d.putImageData(imgData, 0, 0); return; }
+    const logMax = Math.log(maxD + 1);
+    for (let i = 0; i < density.length; i++) {
+      const t = Math.log(density[i] + 1) / logMax;
+      const [r, g, b] = buddhabrotPalette(t, palIdx);
+      imgData.data[i * 4] = r; imgData.data[i * 4 + 1] = g;
+      imgData.data[i * 4 + 2] = b; imgData.data[i * 4 + 3] = 255;
+    }
+    ctx2d.putImageData(imgData, 0, 0);
+    // HUD
+    ctx2d.fillStyle = 'rgba(0,10,20,0.6)';
+    ctx2d.fillRect(0, 0, w, 24);
+    ctx2d.font = '11px "Share Tech Mono", monospace';
+    ctx2d.fillStyle = '#00d4ff';
+    ctx2d.textBaseline = 'middle';
+    ctx2d.fillText(`Buddhabrot · CPU · ${w}×${h}   Samples: ${totalSamples.toLocaleString()}   Iter: ${maxIter}`, 8, 12);
+  }, [w, h, palIdx, totalSamples, maxIter]);
+
+  // Re-render when palette changes
+  useEffect(() => {
+    if (totalSamples > 0) renderDensity();
+  }, [palIdx, renderDensity, totalSamples]);
+
+  const runBatch = useCallback(() => {
+    if (abortRef.current) return;
+    const density = densityRef.current;
+    if (!density) return;
+    const BATCH = 50000;
+    const mi = maxIter;
+
+    for (let s = 0; s < BATCH; s++) {
+      const cRe = Math.random() * 4 - 2;
+      const cIm = Math.random() * 4 - 2;
+      // Skip main cardioid + period-2 bulb
+      const q = (cRe - 0.25) * (cRe - 0.25) + cIm * cIm;
+      if (q * (q + (cRe - 0.25)) <= 0.25 * cIm * cIm) continue;
+      if ((cRe + 1) * (cRe + 1) + cIm * cIm <= 0.0625) continue;
+
+      let zr = 0, zi = 0, n = 0;
+      let escaped = false;
+      for (let i = 0; i < mi; i++) {
+        const nr = zr * zr - zi * zi + cRe;
+        zi = 2 * zr * zi + cIm;
+        zr = nr;
+        if (zr * zr + zi * zi > 4) { escaped = true; n = i + 1; break; }
+      }
+      if (!escaped) continue;
+
+      // Replay orbit and accumulate into density buffer
+      zr = 0; zi = 0;
+      for (let i = 0; i < n; i++) {
+        const nr = zr * zr - zi * zi + cRe;
+        zi = 2 * zr * zi + cIm;
+        zr = nr;
+        const px = Math.floor((zr - xMin) / totalX * w);
+        const py = Math.floor((yMax - zi) / totalY * h);
+        if (px >= 0 && px < w && py >= 0 && py < h) density[py * w + px]++;
+      }
+    }
+
+    setTotalSamples(prev => prev + BATCH);
+    if (!abortRef.current) rafRef.current = requestAnimationFrame(runBatch);
+  }, [w, h, maxIter, xMin, yMax, totalX, totalY]);
+
+  useEffect(() => {
+    if (isRunning) {
+      abortRef.current = false;
+      rafRef.current = requestAnimationFrame(runBatch);
+    }
+    return () => { abortRef.current = true; cancelAnimationFrame(rafRef.current); };
+  }, [isRunning, runBatch]);
+
+  const reset = useCallback(() => {
+    abortRef.current = true;
+    cancelAnimationFrame(rafRef.current);
+    setIsRunning(false);
+    densityRef.current = new Float32Array(w * h);
+    setTotalSamples(0);
+    const ctx2d = canvasRef.current?.getContext('2d');
+    if (ctx2d) { ctx2d.fillStyle = '#000'; ctx2d.fillRect(0, 0, w, h); }
+  }, [w, h]);
+
+  return (
+    <>
+      <div className="controls" style={{ gridTemplateColumns: 'auto auto' }}>
+        <div className="ctrl">
+          <div className="ctrl-header"><span className="ctrl-label">Rendering</span></div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className={`tab-btn ${isRunning ? 'active' : ''}`}
+              onClick={() => setIsRunning(r => !r)}>
+              {isRunning ? '⏸ Pause' : '▶ Start'}
+            </button>
+            <button className="tab-btn" onClick={reset}>↺ Reset</button>
+          </div>
+        </div>
+        <div className="ctrl">
+          <div className="ctrl-header"><span className="ctrl-label">Status</span></div>
+          <div style={{ fontSize: 11, fontFamily: '"Share Tech Mono", monospace', color: 'var(--cyan)' }}>
+            {totalSamples.toLocaleString()} Samples · {isRunning ? 'Läuft...' : 'Pausiert'}
+          </div>
+        </div>
+      </div>
+      <div className="canvas-wrap">
+        <canvas ref={canvasRef} width={w} height={h}
+          style={{ width: '100%', aspectRatio: '3/2', borderRadius: '4px',
+            border: '1px solid rgba(0,212,255,0.1)', background: '#000' }} />
+      </div>
+      <div className="explanation">
+        <h2>Buddhabrot</h2>
+        <p>
+          Das <strong>Buddhabrot</strong> (entdeckt von Melinda Green, 1993) visualisiert die <em>Trajektorien</em>
+          aller Punkte, die aus der Mandelbrot-Menge <strong>entfliehen</strong>. Statt zu fragen „wie schnell entflieht c?",
+          verfolgen wir den kompletten Orbit z₀ → z₁ → z₂ → … und zählen, wie oft jeder Pixel von einem Orbit
+          durchlaufen wird. Das Ergebnis ist eine <strong>Dichteverteilung</strong>, die an eine
+          meditierende Buddha-Figur erinnert.
+        </p>
+        <p style={{ color: 'var(--muted)', fontSize: 12 }}>
+          CPU-basiert · Progressives Rendering · Mehr Iterationen = feinere Strukturen (aber langsameres Sampling)
+        </p>
+      </div>
+    </>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════
    Component
    ═══════════════════════════════════════════════════════ */
-type FractalType = 'mandelbrot' | 'julia';
+type FractalType = 'mandelbrot' | 'julia' | 'burningship' | 'tricorn' | 'celtic' | 'buddhabrot';
+
+const FRACTAL_CENTERS: Record<FractalType, [number, number]> = {
+  mandelbrot: [-0.5, 0], julia: [0, 0],
+  burningship: [-0.4, -0.5], tricorn: [-0.3, 0],
+  celtic: [-0.5, 0], buddhabrot: [-0.5, 0],
+};
 
 function fmtZoom(z: number): string {
   if (z < 1e6) return z.toFixed(1) + 'x';
@@ -472,6 +693,7 @@ export const FraktaleExplorer: React.FC = () => {
   const [playIdx, setPlayIdx] = useState(-1); // -1=not playing
   const playRaf = useRef(0);
   const renderAbort = useRef(false);
+  const autoZoomRef = useRef(0); // for Shift+Click smooth zoom animation
 
   // Track display size
   useEffect(() => {
@@ -511,9 +733,10 @@ export const FraktaleExplorer: React.FC = () => {
     const pixelSpan = 3 / zoom;
     const aspect = w / h;
     const bc = bigCenter.current;
-    const isMandel = fracArr === 'mandelbrot';
+    const isMandel = fracArr !== 'julia';
+    const formulaIdx = fracArr === 'burningship' ? 1 : fracArr === 'tricorn' ? 2 : fracArr === 'celtic' ? 3 : 0;
     const isDragging = dragRef.current.dragging;
-    const useDirectMode = zoom < DIRECT_THRESHOLD;
+    const useDirectMode = zoom < DIRECT_THRESHOLD || formulaIdx > 0;
 
     // Always set center + juliaC (needed for direct mode AND perturbation fallback)
     const rcF = useDirectMode
@@ -552,6 +775,7 @@ export const FraktaleExplorer: React.FC = () => {
     gl.uniform1i(uniforms.maxIter, maxIter);
     gl.uniform1i(uniforms.refLen, orbitRef.current ? orbitRef.current.len : 0);
     gl.uniform1i(uniforms.fractal, isMandel ? 0 : 1);
+    gl.uniform1i(uniforms.formula, formulaIdx);
     gl.uniform1i(uniforms.palette, palIdx);
     gl.uniform1f(uniforms.hueShift, hueShift);
     gl.uniform1f(uniforms.saturation, saturation / 100);
@@ -592,7 +816,8 @@ export const FraktaleExplorer: React.FC = () => {
     const { gl, uniforms } = g;
     const cvs = canvasRef.current!;
     const w = cvs.width, h = cvs.height;
-    const isMandel = fracArr === 'mandelbrot';
+    const isMandel = fracArr !== 'julia';
+    const formulaIdx = fracArr === 'burningship' ? 1 : fracArr === 'tricorn' ? 2 : fracArr === 'celtic' ? 3 : 0;
     const total = animFrameCount;
 
     // Free old frames
@@ -613,15 +838,27 @@ export const FraktaleExplorer: React.FC = () => {
 
       const zoom = Math.exp(logZoomA + (logZoomB - logZoomA) * s);
 
-      // Interpolate center in BigInt precision to avoid float64 collapse at deep zoom
-      // lerp(a, b, s) = a + (b - a) * s, where s is represented as fixed-point
-      const sFP = fpFrom(s);
-      const cRe = fpAdd(startWP.re, fpMul(fpSub(endWP.re, startWP.re), sFP));
-      const cIm = fpAdd(startWP.im, fpMul(fpSub(endWP.im, startWP.im), sFP));
+      // Viewport-proportional center interpolation:
+      // The offset from target must shrink with the viewport so the target
+      // visually tracks towards screen center as we zoom in.
+      // p = (z0/z - z0/z1) / (1 - z0/z1)  →  p=1 at start, p=0 at end
+      let cRe: bigint, cIm: bigint;
+      const zoomRatio = startWP.zoom / endWP.zoom;
+      if (Math.abs(1 - zoomRatio) < 1e-6) {
+        // Same zoom level → linear center interpolation
+        const sFP = fpFrom(s);
+        cRe = fpAdd(startWP.re, fpMul(fpSub(endWP.re, startWP.re), sFP));
+        cIm = fpAdd(startWP.im, fpMul(fpSub(endWP.im, startWP.im), sFP));
+      } else {
+        const p = (startWP.zoom / zoom - zoomRatio) / (1 - zoomRatio);
+        const pFP = fpFrom(Math.max(0, Math.min(1, p)));
+        cRe = fpAdd(endWP.re, fpMul(fpSub(startWP.re, endWP.re), pFP));
+        cIm = fpAdd(endWP.im, fpMul(fpSub(startWP.im, endWP.im), pFP));
+      }
 
       const pixelSpan = 3 / zoom;
       const aspect = w / h;
-      const useDirectMode = zoom < DIRECT_THRESHOLD;
+      const useDirectMode = zoom < DIRECT_THRESHOLD || formulaIdx > 0;
 
       gl.viewport(0, 0, w, h);
 
@@ -648,8 +885,13 @@ export const FraktaleExplorer: React.FC = () => {
       gl.uniform1f(uniforms.aspect, aspect);
       gl.uniform1i(uniforms.maxIter, maxIter);
       gl.uniform1i(uniforms.fractal, isMandel ? 0 : 1);
+      gl.uniform1i(uniforms.formula, formulaIdx);
       gl.uniform1i(uniforms.palette, palIdx);
       gl.uniform2f(uniforms.juliaC, juliaC.re, juliaC.im);
+      gl.uniform1f(uniforms.hueShift, hueShift);
+      gl.uniform1f(uniforms.saturation, saturation / 100);
+      gl.uniform1f(uniforms.brightness, brightness / 100);
+      gl.uniform1f(uniforms.contrast, contrast / 100 * 2);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.finish(); // ensure GPU is done
@@ -665,7 +907,7 @@ export const FraktaleExplorer: React.FC = () => {
     }
 
     setRenderProgress(-1);
-  }, [startWP, endWP, animFrameCount, fracArr, maxIter, palIdx, juliaC, canvasSize]);
+  }, [startWP, endWP, animFrameCount, fracArr, maxIter, palIdx, juliaC, canvasSize, hueShift, saturation, brightness, contrast]);
 
   // Playback loop
   useEffect(() => {
@@ -739,6 +981,41 @@ export const FraktaleExplorer: React.FC = () => {
     };
 
     const onDown = (e: MouseEvent) => {
+      if (e.shiftKey) {
+        // ── Shift+Click: smooth auto-zoom to click position ──
+        e.preventDefault();
+        cancelAnimationFrame(autoZoomRef.current);
+        const r = rect();
+        const mx = (e.clientX - r.left) / r.width;
+        const my = (e.clientY - r.top) / r.height;
+        const aspect = cvs.width / cvs.height;
+        const zoom = zoomRef.current;
+        const pixelSpan = 3 / zoom;
+
+        // Target world coordinate
+        const targetRe = fpAdd(bigCenter.current.re, fpFrom((mx - 0.5) * pixelSpan * aspect));
+        const targetIm = fpAdd(bigCenter.current.im, fpFrom((my - 0.5) * pixelSpan));
+        const targetZoom = zoom * 8;
+
+        const startRe = bigCenter.current.re;
+        const startIm = bigCenter.current.im;
+        const startZoom = zoom;
+        const duration = 800;
+        const startTime = performance.now();
+
+        const step = (now: number) => {
+          const t = Math.min((now - startTime) / duration, 1);
+          const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+          zoomRef.current = startZoom * Math.pow(targetZoom / startZoom, ease);
+          bigCenter.current.re = fpAdd(startRe, fpMul(fpSub(targetRe, startRe), fpFrom(ease)));
+          bigCenter.current.im = fpAdd(startIm, fpMul(fpSub(targetIm, startIm), fpFrom(ease)));
+          kick();
+          render();
+          if (t < 1) autoZoomRef.current = requestAnimationFrame(step);
+        };
+        autoZoomRef.current = requestAnimationFrame(step);
+        return;
+      }
       dragRef.current = {
         dragging: true, sx: e.clientX, sy: e.clientY,
         scxBig: bigCenter.current.re, scyBig: bigCenter.current.im,
@@ -764,10 +1041,8 @@ export const FraktaleExplorer: React.FC = () => {
       }
     };
     const onDbl = () => {
-      bigCenter.current = {
-        re: fpFrom(fracArr === 'mandelbrot' ? -0.5 : 0),
-        im: fpFrom(0),
-      };
+      const [cx, cy] = FRACTAL_CENTERS[fracArr] || [-0.5, 0];
+      bigCenter.current = { re: fpFrom(cx), im: fpFrom(cy) };
       zoomRef.current = 1;
       kick();
       render();
@@ -780,6 +1055,7 @@ export const FraktaleExplorer: React.FC = () => {
     cvs.addEventListener('dblclick', onDbl);
 
     return () => {
+      cancelAnimationFrame(autoZoomRef.current);
       cvs.removeEventListener('wheel', onWheel);
       cvs.removeEventListener('mousedown', onDown);
       window.removeEventListener('mousemove', onMove);
@@ -790,7 +1066,8 @@ export const FraktaleExplorer: React.FC = () => {
 
   const switchFrac = (f: FractalType) => {
     setFrac(f);
-    bigCenter.current = { re: fpFrom(f === 'mandelbrot' ? -0.5 : 0), im: fpFrom(0) };
+    const [cx, cy] = FRACTAL_CENTERS[f];
+    bigCenter.current = { re: fpFrom(cx), im: fpFrom(cy) };
     zoomRef.current = 1;
     orbitRef.current = null;
     kick();
@@ -812,16 +1089,20 @@ export const FraktaleExplorer: React.FC = () => {
     <>
       <div className="header-eyebrow">Tools <span>// Fraktale-Explorer</span></div>
       <h1>Fraktale<em>Explorer</em></h1>
-      <p className="subtitle">Mandelbrot- & Julia-Mengen — Perturbation Theory, unbegrenzter Zoom</p>
+      <p className="subtitle">Mandelbrot, Julia, Burning Ship, Tricorn, Celtic & Buddhabrot — GPU-beschleunigt</p>
 
       <div className="controls" style={{ gridTemplateColumns: 'auto auto auto auto auto' }}>
         <div className="ctrl">
           <div className="ctrl-header"><span className="ctrl-label">Fraktal</span></div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {(['mandelbrot', 'julia'] as FractalType[]).map(f => (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {([
+              ['mandelbrot', 'Mandelbrot'], ['julia', 'Julia'],
+              ['burningship', 'Burning Ship'], ['tricorn', 'Tricorn'],
+              ['celtic', 'Celtic'], ['buddhabrot', 'Buddhabrot'],
+            ] as [FractalType, string][]).map(([f, label]) => (
               <button key={f} className={`tab-btn ${fracArr === f ? 'active' : ''}`}
                 onClick={() => switchFrac(f)}>
-                {f === 'mandelbrot' ? 'Mandelbrot' : 'Julia'}
+                {label}
               </button>
             ))}
           </div>
@@ -901,8 +1182,13 @@ export const FraktaleExplorer: React.FC = () => {
         )}
       </div>
 
+      {/* Buddhabrot renderer */}
+      {fracArr === 'buddhabrot' && (
+        <BuddhabrotVis maxIter={maxIter} palIdx={palIdx} canvasSize={canvasSize} />
+      )}
+
       {/* Animation controls */}
-      <div className="controls" style={{ gridTemplateColumns: 'auto auto auto auto auto' }}>
+      {fracArr !== 'buddhabrot' && <div className="controls" style={{ gridTemplateColumns: 'auto auto auto auto auto' }}>
         <div className="ctrl">
           <div className="ctrl-header"><span className="ctrl-label">Waypoints</span></div>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -988,31 +1274,42 @@ export const FraktaleExplorer: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      <div className="canvas-wrap" style={{ position: 'relative', cursor: 'grab' }}>
+      <div className="canvas-wrap" style={{ position: 'relative', cursor: 'grab', display: fracArr === 'buddhabrot' ? 'none' : undefined }}>
         <canvas ref={canvasRef} width={canvasSize.w} height={canvasSize.h}
           style={{ width: '100%', aspectRatio: '3/2', borderRadius: '4px', border: '1px solid rgba(0,212,255,0.1)' }} />
         <canvas ref={hudRef} width={canvasSize.w} height={canvasSize.h}
           style={{ position: 'absolute', top: 0, left: 0, width: '100%', aspectRatio: '3/2', pointerEvents: 'none', borderRadius: '4px' }} />
       </div>
 
-      <div className="explanation">
-        <h2>Perturbation Theory</h2>
+      {fracArr !== 'buddhabrot' && <div className="explanation">
+        <h2>Fraktal-Typen</h2>
         <p>
-          Dieser Explorer verwendet <strong>Perturbation Theory</strong> — ein Referenz-Orbit wird am Bildmittelpunkt
-          in beliebiger Präzision (128-Bit BigInt) berechnet. Die GPU berechnet pro Pixel nur die winzige Abweichung
-          (δ) vom Referenz-Orbit in float32. Dadurch sind <strong>Zooms bis ~10<sup>38</sup></strong> möglich,
-          ohne Präzisionsverlust.
+          <strong>Mandelbrot</strong> — z<sub>n+1</sub> = z<sub>n</sub>² + c mit z₀ = 0. Verwendet Perturbation Theory
+          für Deep-Zoom (bis ~10<sup>38</sup>x) mit 128-Bit BigInt Referenz-Orbits.
         </p>
         <p>
-          <strong>Julia-Mengen</strong> verwenden dieselbe Technik mit dem Referenz-Orbit am Bildzentrum.
-          Benutze die Regler, um verschiedene Julia-Mengen zu entdecken!
+          <strong>Julia</strong> — z<sub>n+1</sub> = z<sub>n</sub>² + c, wobei c fest ist und z₀ über die Ebene variiert.
+          Jeder Punkt der Mandelbrot-Menge erzeugt eine einzigartige Julia-Menge.
+        </p>
+        <p>
+          <strong>Burning Ship</strong> — z<sub>n+1</sub> = (|Re(z<sub>n</sub>)| + i|Im(z<sub>n</sub>)|)² + c.
+          Durch die Betragsbildung entsteht eine schiffsrumpf-ähnliche Form mit dramatischen Strukturen.
+        </p>
+        <p>
+          <strong>Tricorn</strong> — z<sub>n+1</sub> = z̄<sub>n</sub>² + c
+          (konjugiertes z). Auch als „Mandelbar" bekannt — erzeugt dreizackige Symmetrien.
+        </p>
+        <p>
+          <strong>Celtic</strong> — z<sub>n+1</sub> = |Re(z<sub>n</sub>²)| + i·Im(z<sub>n</sub>²) + c.
+          Die Betragsbildung auf den Realteil von z² erzeugt keltisch anmutende Muster.
         </p>
         <p style={{ color: 'var(--muted)', fontSize: 12 }}>
-          GPU + BigInt ⚡ · Scrollen = Zoom (zum Mauszeiger) · Ziehen = Verschieben · Doppelklick = Reset
+          GPU + BigInt ⚡ · Scrollen = Zoom · Ziehen = Verschieben · Doppelklick = Reset ·
+          Deep-Zoom (Perturbation) nur für Mandelbrot & Julia
         </p>
-      </div>
+      </div>}
     </>
   );
 };
