@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SITE_URL = 'https://fluxmath.de';
+const SITE_URL = 'https://fluxmath.cflux.org';
 const DIST_DIR = path.resolve(__dirname, '..', 'dist');
 
 function findTopicIds(dir) {
